@@ -70,14 +70,30 @@ not an afterthought.
 Architecture + rationale in `encoder_parser/DESIGN.md`. Built as vertical slices
 (one task fully working before the next) since CUDA can't run locally.
 
-### Slice 1 — Trigger identification  (built, awaiting first Colab run)
-- [x] `encoder_parser/data.py` — FrameNet loading + tokenizer label alignment;
-      pure-Python core (word seg / trigger-word id / scoring) unit-tested locally
-- [x] `encoder_parser/train_trigger.py` — HF Trainer fine-tune, DeBERTa-v3-large
-- [x] `encoder_parser/eval_trigger.py` — word-level F1, baseline-comparable
-- [x] `encoder_parser/train_encoder.ipynb` — Colab driver
-- [x] `encoder_parser/tests/test_data_core.py` — 8 tests, pass locally
-- [ ] **Colab run: report trigger F1 vs 0.735 + ms/sentence vs 196.6** ← user action
+### Slice 1 — Trigger identification  ✅ DONE (2026-07-06) — beats baseline
+- [x] `encoder_parser/data.py`, `train_trigger.py`, `eval_trigger.py`,
+      `train_encoder.ipynb`, `sesame_splits.py`
+- [x] tests: `test_data_core.py` (8), `test_load_trigger.py` (1) — pass locally
+- [x] **Colab run (A100, DeBERTa-v3-large, bf16, 5 epochs):**
+
+  | metric | encoder | baseline |
+  | ------ | ------- | -------- |
+  | trigger F1 | **0.751** (P 0.728 / R 0.775) | 0.735 |
+  | speed | 73.7 ms/sentence (unbatched) | 196.6 ms/sample (batched, 3-task) |
+
+  tp/fp/fn = 5326/1994/1547 over 1354 test sentences.
+
+  **Caveats (to tighten before any published claim):**
+  1. Not a perfectly clean head-to-head: 0.735 came from upstream's *generative*
+     eval (penalized for text-generation artifacts); the encoder is scored with
+     our cleaner word-level metric. To be airtight, also run the baseline model
+     through our metric. The encoder is genuinely ahead, but the exact margin is
+     soft.
+  2. Speed units differ (sentence vs task-sample) and encoder eval is unbatched;
+     batching will widen the gap. Not yet an apples-to-apples ms figure.
+
+  Bottom line: pipeline is sound and the encoder is at least competitive and
+  likely ahead on trigger id — strong green light for slices 2 & 3.
 
 ### Slice 2 — Frame classification  ▫ TODO (candidate-masked frame-embedding head)
 ### Slice 3 — Argument extraction  ▫ TODO (extractive span head per role)
