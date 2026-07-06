@@ -65,5 +65,22 @@ The Milestone 2 encoder does one forward pass per sample with no beam search, so
 this is the number that should drop ~10–40×. Latency is a headline deliverable,
 not an afterthought.
 
-## Milestone 2 — Encoder pipeline scaffold (DeBERTa-v3-large)  ▫ TODO
+## Milestone 2 — Encoder pipeline scaffold (DeBERTa-v3-large)  ⏳ IN PROGRESS
+
+Architecture + rationale in `encoder_parser/DESIGN.md`. Built as vertical slices
+(one task fully working before the next) since CUDA can't run locally.
+
+### Slice 1 — Trigger identification  (built, awaiting first Colab run)
+- [x] `encoder_parser/data.py` — FrameNet loading + tokenizer label alignment;
+      pure-Python core (word seg / trigger-word id / scoring) unit-tested locally
+- [x] `encoder_parser/train_trigger.py` — HF Trainer fine-tune, DeBERTa-v3-large
+- [x] `encoder_parser/eval_trigger.py` — word-level F1, baseline-comparable
+- [x] `encoder_parser/train_encoder.ipynb` — Colab driver
+- [x] `encoder_parser/tests/test_data_core.py` — 8 tests, pass locally
+- [ ] **Colab run: report trigger F1 vs 0.735 + ms/sentence vs 196.6** ← user action
+
+### Slice 2 — Frame classification  ▫ TODO (candidate-masked frame-embedding head)
+### Slice 3 — Argument extraction  ▫ TODO (extractive span head per role)
+
 ## Milestone 3 — Close and beat the gap  ▫ TODO
+(includes optional shared-backbone consolidation — see DESIGN.md)
