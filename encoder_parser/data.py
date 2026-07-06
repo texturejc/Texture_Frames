@@ -219,54 +219,52 @@ def load_trigger_sentences(split: str) -> list[tuple[str, list[int]]]:
 
 
 def build_trigger_dataset(split: str, tokenizer, max_length: int = 320):
-    """Tokenize a split into a HF Dataset with input_ids/attention_mask/labels.
+    """Tokenize a split into a torch Dataset of input_ids/attention_mask/labels.
 
+    Uses a plain `torch.utils.data.Dataset`, NOT huggingface `datasets` — the
+    latter pulls in pyarrow, whose compiled extensions are a recurring source of
+    numpy-ABI crashes on Colab. HF `Trainer` accepts any map-style torch Dataset.
     Requires a *fast* tokenizer (offset_mapping + word_ids).
     """
-    from datasets import Dataset
+    import torch
 
-    raw = load_trigger_sentences(split)
-    texts = [t for t, _ in raw]
-    trigger_locs_list = [locs for _, locs in raw]
+    class _ListDataset(torch.utils.data.Dataset):
+        def __init__(self, rows):
+            self.rows = rows
 
-    def gen():
-        for text, trigger_locs in zip(texts, trigger_locs_list):
-            enc = tokenizer(
-                text,
-                truncation=True,
-                max_length=max_length,
-                return_offsets_mapping=True,
-            )
-            word_ids = enc.word_ids()
-            words = whitespace_words(text)
-            trig_word_idx = trigger_word_indices(words, trigger_locs)
-            # word_is_trigger indexed by the tokenizer's word ids: a tokenizer
-            # "word" is a trigger iff its char-span start lands in a gold trigger
-            # whitespace-word. Build per-tokenizer-word trigger flags via offsets.
-            n_words = (max([w for w in word_ids if w is not None], default=-1)) + 1
-            word_start = [None] * n_words
-            for (s, _e), wid in zip(enc["offset_mapping"], word_ids):
-                if wid is not None and word_start[wid] is None:
-                    word_start[wid] = snap_to_word_start(text, s)
-            word_is_trigger = []
-            gold = trigger_word_indices(words, trigger_locs)
-            for wid in range(n_words):
-                cs = word_start[wid]
-                # which whitespace word does this tokenizer-word start in?
-                is_trig = False
-                for gi in gold:
-                    ws, we = words[gi]
-                    if cs is not None and ws <= cs < we:
-                        is_trig = True
-                        break
-                word_is_trigger.append(is_trig)
-            labels = align_trigger_labels(
-                enc["offset_mapping"], word_ids, word_is_trigger
-            )
-            yield {
+        def __len__(self):
+            return len(self.rows)
+
+        def __getitem__(self, idx):
+            return self.rows[idx]
+
+    rows = []
+    for text, trigger_locs in load_trigger_sentences(split):
+        enc = tokenizer(
+            text, truncation=True, max_length=max_length, return_offsets_mapping=True
+        )
+        word_ids = enc.word_ids()
+        words = whitespace_words(text)
+        gold = trigger_word_indices(words, trigger_locs)
+
+        # Per-tokenizer-word trigger flag: a tokenizer "word" is a trigger iff its
+        # (snapped) char-span start falls in a gold trigger whitespace-word.
+        n_words = max((w for w in word_ids if w is not None), default=-1) + 1
+        word_is_trigger = [False] * n_words
+        seen = [False] * n_words
+        for (s, _e), wid in zip(enc["offset_mapping"], word_ids):
+            if wid is None or seen[wid]:
+                continue
+            seen[wid] = True
+            cs = snap_to_word_start(text, s)
+            word_is_trigger[wid] = any(words[gi][0] <= cs < words[gi][1] for gi in gold)
+
+        labels = align_trigger_labels(enc["offset_mapping"], word_ids, word_is_trigger)
+        rows.append(
+            {
                 "input_ids": enc["input_ids"],
                 "attention_mask": enc["attention_mask"],
                 "labels": labels,
             }
-
-    return Dataset.from_generator(gen)
+        )
+    return _ListDataset(rows)

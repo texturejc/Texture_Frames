@@ -25,10 +25,15 @@ sentencepiece>=0.1.99      # required by both T5 and DeBERTa-v3 tokenizers
 nltk>=3.8                  # FrameNet 1.7 corpus + WordNet
 
 # --- training (Milestone 2+) ---
-accelerate>=0.28,<0.34
-datasets>=2.18,<3.0
-seqeval>=1.2.2             # span/token-level P/R/F1 for the encoder heads
-evaluate>=0.4.1
+accelerate>=0.28,<0.34    # required by HF Trainer
+
+# Deliberately NOT included, to keep the compiled-dependency surface (and thus
+# numpy-ABI conflicts on Colab) minimal:
+#   * datasets / pyarrow  — we feed the Trainer a plain torch Dataset instead
+#     (encoder_parser/data.build_trigger_dataset).
+#   * seqeval / evaluate  — we compute P/R/F1 ourselves (encoder_parser/data.py,
+#     eval_trigger.py) with the exact baseline-comparable definition.
+# Add them back only if a later slice genuinely needs them.
 
 # nlpaug is intentionally NOT listed here. The vendored parser's augmentation
 # modules import it at load time, so the *baseline* notebook (which imports the
