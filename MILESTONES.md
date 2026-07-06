@@ -27,8 +27,18 @@ own eval harness, so later "we beat it" claims are credible.
 - [x] Standalone eval script that reuses upstream scoring, no Lightning dep
       (`reproduce_baseline/eval_baseline.py`)
 - [x] Colab notebook (`reproduce_baseline/reproduce_baseline.ipynb`)
+- [x] Pinned `requirements-colab.txt` (canonical env for eval + training)
 - [ ] **Run on Colab; confirm F1 within ~1 pt of the table above** ← user action
 - [ ] Record measured numbers below
+
+### Colab environment (avoids the install/protobuf failures)
+- Parser is **cloned + added to `sys.path`**, never `pip install`ed → no package
+  build, so imports can't fail with `KeyError: 'frame_semantic_transformer'`.
+- `torch` / `protobuf` / `numpy` are left exactly as Colab ships them. The
+  protobuf C++ error is defeated by setting
+  `PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python` before importing transformers,
+  **not** by pinning protobuf (which conflicts with Colab's TF/google-* libs).
+- Everything else is pinned in `requirements-colab.txt`.
 
 ### Why a custom eval loop
 Upstream `evaluate_model()` uses PyTorch-Lightning 1.x hooks

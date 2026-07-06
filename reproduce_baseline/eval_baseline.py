@@ -16,10 +16,15 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from collections import defaultdict
 from pathlib import Path
+
+# Must be set before transformers/sentencepiece import to avoid the protobuf
+# "Descriptors cannot be created directly" C++ backend error.
+os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
 
 import torch
 from torch.utils.data import DataLoader

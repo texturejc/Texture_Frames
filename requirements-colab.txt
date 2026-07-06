@@ -1,0 +1,31 @@
+# Canonical pinned environment for this project on Google Colab.
+# Covers BOTH baseline reproduction (T5) and Path B encoder training (DeBERTa-v3).
+#
+# Install with:
+#     pip install -r requirements-colab.txt
+#
+# Two deliberate non-pins that keep Colab stable:
+#
+#   1. torch / torchvision / torchaudio are NOT listed. Use the CUDA-matched
+#      build that already ships on the Colab GPU image. Reinstalling torch is the
+#      #1 cause of broken CUDA on Colab.
+#
+#   2. protobuf and numpy are NOT pinned. Pinning them fights Colab's preinstalled
+#      TensorFlow / google-* libraries and causes the resolver conflicts you saw.
+#      Instead, defeat the protobuf C++ backend error at runtime by setting this
+#      BEFORE importing transformers / sentencepiece:
+#          import os
+#          os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+#      (The notebooks do this for you.)
+
+# --- core: baseline reproduction + inference ---
+transformers>=4.38,<4.45
+tokenizers>=0.15,<0.20
+sentencepiece>=0.1.99      # required by both T5 and DeBERTa-v3 tokenizers
+nltk>=3.8                  # FrameNet 1.7 corpus + WordNet
+
+# --- training (Milestone 2+) ---
+accelerate>=0.28,<0.34
+datasets>=2.18,<3.0
+seqeval>=1.2.2             # span/token-level P/R/F1 for the encoder heads
+evaluate>=0.4.1
