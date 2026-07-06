@@ -92,7 +92,7 @@ def train(
         warmup_ratio=warmup_ratio,
         weight_decay=weight_decay,
         fp16=fp16 and torch.cuda.is_available(),
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",  # transformers >=4.44 (renamed from evaluation_strategy)
         save_strategy="epoch",
         logging_steps=50,
         load_best_model_at_end=True,

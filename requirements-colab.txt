@@ -10,22 +10,28 @@
 #      build that already ships on the Colab GPU image. Reinstalling torch is the
 #      #1 cause of broken CUDA on Colab.
 #
-#   2. protobuf and numpy are NOT pinned. Pinning them fights Colab's preinstalled
-#      TensorFlow / google-* libraries and causes the resolver conflicts you saw.
-#      Instead, defeat the protobuf C++ backend error at runtime by setting this
-#      BEFORE importing transformers / sentencepiece:
+#   2. protobuf is NOT pinned. Defeat the protobuf C++ backend error at runtime
+#      by setting this BEFORE importing transformers / sentencepiece:
 #          import os
 #          os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 #      (The notebooks do this for you.)
+#
+#   3. numpy IS pinned to >=2. Colab (2025+) ships numpy 2.x and its torch /
+#      transformers are built against it. A stray `pip install numpy` or an old
+#      transformers cap can silently downgrade numpy to 1.x, which then breaks
+#      everything with either "numpy.dtype size changed" or
+#      "No module named 'numpy.strings'". Pinning >=2 makes `pip install`
+#      *repair* such a downgrade. (If you hit this on a dirty runtime, you must
+#      also Delete the runtime — Restart session keeps the bad numpy on disk.)
 
 # --- core: baseline reproduction + inference ---
-transformers>=4.38,<4.45
-tokenizers>=0.15,<0.20
+numpy>=2                   # keep consistent with Colab's numpy-2 stack (see note 3)
+transformers>=4.44         # numpy-2 compatible; do NOT cap below this
 sentencepiece>=0.1.99      # required by both T5 and DeBERTa-v3 tokenizers
 nltk>=3.8                  # FrameNet 1.7 corpus + WordNet
 
 # --- training (Milestone 2+) ---
-accelerate>=0.28,<0.34    # required by HF Trainer
+accelerate>=0.30          # required by HF Trainer
 
 # Deliberately NOT included, to keep the compiled-dependency surface (and thus
 # numpy-ABI conflicts on Colab) minimal:
