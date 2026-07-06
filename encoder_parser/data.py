@@ -161,32 +161,63 @@ def prf1(true_pos: int, false_pos: int, false_neg: int) -> dict[str, float]:
 def load_trigger_sentences(split: str) -> list[tuple[str, list[int]]]:
     """Return [(sentence_text, [trigger_locs]), ...] for a split.
 
-    split ∈ {"train", "dev", "test"}. Skips sentences flagged
-    skip_trigger_identification_task (not exhaustively trigger-annotated).
+    split ∈ {"train", "dev", "test"}.
+
+    Deliberately self-contained: it reuses only the upstream *clean* modules —
+    the Open-Sesame split lists and the FrameNet download helper — and reads the
+    corpus via nltk directly. It does NOT import Framenet17TrainingLoader, whose
+    module unconditionally imports the augmentation classes (SynonymAugmentation,
+    KeyboardAugmentation) which require `nlpaug`. We never run augmentation here,
+    so pulling in nlpaug (and its numpy/pandas ABI conflicts on Colab) is pure
+    downside. The parsing below mirrors upstream
+    `parse_annotated_sentence_from_framenet_sentence` for the trigger fields,
+    so the sentence set + trigger locs match what the baseline was scored on.
     """
-    from frame_semantic_transformer.data.loaders.framenet17 import (
-        Framenet17TrainingLoader,
+    from nltk.corpus import framenet as fn
+
+    from frame_semantic_transformer.data.loaders.framenet17.ensure_framenet_downloaded import (
+        ensure_framenet_downloaded,
+    )
+    from frame_semantic_transformer.data.loaders.framenet17.sesame_data_splits import (
+        SESAME_DEV_FILES,
+        SESAME_TEST_FILES,
     )
 
-    loader = Framenet17TrainingLoader()
-    loader.setup()
+    ensure_framenet_downloaded()
+
     if split == "train":
-        sentences = loader.load_training_data()
+        include_docs, exclude_docs = None, set(SESAME_DEV_FILES) | set(SESAME_TEST_FILES)
     elif split == "dev":
-        sentences = loader.load_validation_data()
+        include_docs, exclude_docs = set(SESAME_DEV_FILES), None
     elif split == "test":
-        sentences = loader.load_test_data()
+        include_docs, exclude_docs = set(SESAME_TEST_FILES), None
     else:
         raise ValueError(f"unknown split {split!r}")
 
     out: list[tuple[str, list[int]]] = []
-    for sent in sentences:
-        if sent.skip_trigger_identification_task:
+    for doc in fn.docs():
+        fname = doc["filename"]
+        if exclude_docs and fname in exclude_docs:
             continue
-        locs: list[int] = []
-        for ann in sent.annotations:
-            locs.extend(ann.trigger_locs)
-        out.append((sent.text, sorted(set(locs))))
+        if include_docs and fname not in include_docs:
+            continue
+        for sentence in doc["sentence"]:
+            text = sentence["text"]
+            locs: list[int] = []
+            broken = False
+            for ann in sentence["annotationSet"]:
+                if "FE" in ann and "Target" in ann and "frame" in ann:
+                    for target_span in ann["Target"]:
+                        loc = target_span[0]
+                        if loc >= len(text):
+                            broken = True  # upstream drops the whole sentence
+                            break
+                        locs.append(loc)
+                if broken:
+                    break
+            # upstream keeps the sentence only if it has ≥1 valid frame annotation
+            if not broken and locs:
+                out.append((text, sorted(set(locs))))
     return out
 
 

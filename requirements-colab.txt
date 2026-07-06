@@ -29,3 +29,12 @@ accelerate>=0.28,<0.34
 datasets>=2.18,<3.0
 seqeval>=1.2.2             # span/token-level P/R/F1 for the encoder heads
 evaluate>=0.4.1
+
+# nlpaug is intentionally NOT listed here. The vendored parser's augmentation
+# modules import it at load time, so the *baseline* notebook (which imports the
+# full loaders) needs it — but installing it normally drags in a numpy/pandas
+# that breaks Colab's ABI ("numpy.dtype size changed"). The baseline notebook
+# therefore installs it separately with `pip install --no-deps nlpaug`.
+# The encoder pipeline (encoder_parser/) avoids nlpaug entirely: its FrameNet
+# loader (data.load_trigger_sentences) reads the corpus directly and never
+# imports the augmentation modules.
