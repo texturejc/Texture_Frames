@@ -107,7 +107,26 @@ to the lexicon candidate frames so only a valid frame can be emitted.
 - [x] `encoder_parser/train_frame.py`, `eval_frame.py` (candidate-masked F1)
 - [x] `encoder_parser/train_frame.ipynb` — Colab driver
 - [x] tests: `mark_trigger` (3), `trigger_bigrams` (3) pass locally
-- [ ] **Colab run: report frame F1 vs 0.887 + lexicon coverage** ← user action
+- [x] **Colab run (A100, DeBERTa-v3-large, bf16, 5 epochs):**
+
+  | metric | encoder | baseline |
+  | ------ | ------- | -------- |
+  | frame F1 / acc | **0.861** (5927/6886) | 0.887 |
+  | lexicon coverage (ceiling) | 0.978 | — |
+  | speed | 78.4 ms/example (unbatched) | — |
+
+  **Gap analysis (0.887 − 0.861 = −0.026, below baseline):**
+  - 2.2% is lost to the hard candidate mask: coverage is 0.978, so 2.2% of gold
+    frames aren't in the candidate set and become forced errors. The baseline
+    (T5) uses candidates only as an input *hint* and can still emit any valid
+    frame, so it isn't capped at 0.978. **Fix: soft-mask** (bias candidates
+    instead of −inf) to recover this.
+  - Of the covered cases the model gets 0.861/0.978 = 0.881 right; the rest is
+    discrimination among multi-candidate triggers → **tuning territory** (marker-
+    token pooling instead of CLS, LR/epochs, feed candidate names into input as
+    the baseline does).
+  - This is the baseline's *strongest* task; a first untuned scaffold landing
+    within 2.6 pts is expected. Closing it is a Milestone 3 job.
 ### Slice 3 — Argument extraction  ▫ TODO (extractive span head per role)
 
 ## Milestone 3 — Close and beat the gap  ▫ TODO
