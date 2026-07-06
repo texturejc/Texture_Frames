@@ -71,17 +71,26 @@ def train(
     tokenizer = AutoTokenizer.from_pretrained(base_model)
     assert tokenizer.is_fast, "need a fast tokenizer for offset_mapping/word_ids"
 
+    # Load master weights in fp32. DeBERTa-v3's checkpoint is fp16-sized; letting
+    # params stay fp16 triggers "Attempting to unscale FP16 gradients" under AMP.
     model = AutoModelForTokenClassification.from_pretrained(
         base_model,
         num_labels=len(LABELS),
         id2label=ID2LABEL,
         label2id=LABEL2ID,
+        torch_dtype=torch.float32,
     )
 
     train_ds = build_trigger_dataset("train", tokenizer, max_length=max_length)
     dev_ds = build_trigger_dataset("dev", tokenizer, max_length=max_length)
 
     collator = DataCollatorForTokenClassification(tokenizer, label_pad_token_id=IGNORE_INDEX)
+
+    # Prefer bf16 on Ampere+ (A100/L4): more stable and, unlike fp16, uses no
+    # gradient scaler — so it can't raise "Attempting to unscale FP16 gradients".
+    # Fall back to fp16 on older GPUs, fp32 on CPU.
+    use_bf16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+    use_fp16 = torch.cuda.is_available() and fp16 and not use_bf16
 
     args = TrainingArguments(
         output_dir=output_dir,
@@ -91,7 +100,8 @@ def train(
         learning_rate=lr,
         warmup_ratio=warmup_ratio,
         weight_decay=weight_decay,
-        fp16=fp16 and torch.cuda.is_available(),
+        bf16=use_bf16,
+        fp16=use_fp16,
         eval_strategy="epoch",  # transformers >=4.44 (renamed from evaluation_strategy)
         save_strategy="epoch",
         logging_steps=50,
