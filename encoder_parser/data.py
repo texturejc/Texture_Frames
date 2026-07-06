@@ -163,27 +163,24 @@ def load_trigger_sentences(split: str) -> list[tuple[str, list[int]]]:
 
     split ∈ {"train", "dev", "test"}.
 
-    Deliberately self-contained: it reuses only the upstream *clean* modules —
-    the Open-Sesame split lists and the FrameNet download helper — and reads the
-    corpus via nltk directly. It does NOT import Framenet17TrainingLoader, whose
-    module unconditionally imports the augmentation classes (SynonymAugmentation,
-    KeyboardAugmentation) which require `nlpaug`. We never run augmentation here,
-    so pulling in nlpaug (and its numpy/pandas ABI conflicts on Colab) is pure
-    downside. The parsing below mirrors upstream
-    `parse_annotated_sentence_from_framenet_sentence` for the trigger fields,
-    so the sentence set + trigger locs match what the baseline was scored on.
+    Fully decoupled from `frame_semantic_transformer`: importing ANY submodule
+    under its `framenet17` package runs that package's __init__, which imports
+    Framenet17TrainingLoader -> the augmentation classes (SynonymAugmentation,
+    KeyboardAugmentation) -> `nlpaug`. We never run augmentation, so we vendor the
+    split lists (`sesame_splits.py`) and read the corpus via nltk directly. The
+    parsing below mirrors upstream
+    `parse_annotated_sentence_from_framenet_sentence` for the trigger fields, so
+    the sentence set + trigger locs match what the baseline was scored on.
     """
+    import nltk
     from nltk.corpus import framenet as fn
 
-    from frame_semantic_transformer.data.loaders.framenet17.ensure_framenet_downloaded import (
-        ensure_framenet_downloaded,
-    )
-    from frame_semantic_transformer.data.loaders.framenet17.sesame_data_splits import (
-        SESAME_DEV_FILES,
-        SESAME_TEST_FILES,
-    )
+    from sesame_splits import SESAME_DEV_FILES, SESAME_TEST_FILES
 
-    ensure_framenet_downloaded()
+    try:
+        nltk.data.find("corpora/framenet_v17")
+    except LookupError:
+        nltk.download("framenet_v17")
 
     if split == "train":
         include_docs, exclude_docs = None, set(SESAME_DEV_FILES) | set(SESAME_TEST_FILES)
