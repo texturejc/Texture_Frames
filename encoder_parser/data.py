@@ -28,6 +28,10 @@ LABEL2ID = {label: i for i, label in enumerate(LABELS)}
 ID2LABEL = {i: label for label, i in LABEL2ID.items()}
 IGNORE_INDEX = -100  # torch CrossEntropyLoss / HF default ignore id
 
+# Entity-marker tokens wrapped around the trigger word for frame classification.
+TRIGGER_START = "<t>"
+TRIGGER_END = "</t>"
+
 
 # --------------------------------------------------------------------------- #
 # Pure-Python core (no torch/transformers) — unit-tested                       #
@@ -145,6 +149,19 @@ def score_trigger_words(
     false_pos = len(pred - gold)
     false_neg = len(gold - pred)
     return true_pos, false_pos, false_neg
+
+
+def mark_trigger(text: str, trigger_loc: int) -> str:
+    """Wrap the trigger word (the whitespace word containing trigger_loc) with
+    entity-marker tokens, e.g. 'The chef <t> gave </t> food.' — the input format
+    for the frame-classification head. Pure/testable."""
+    loc = snap_to_word_start(text, trigger_loc)
+    start = end = loc
+    for s, e in whitespace_words(text):
+        if s <= loc < e:
+            start, end = s, e
+            break
+    return f"{text[:start]}{TRIGGER_START} {text[start:end]} {TRIGGER_END}{text[end:]}"
 
 
 def prf1(true_pos: int, false_pos: int, false_neg: int) -> dict[str, float]:
@@ -265,6 +282,99 @@ def build_trigger_dataset(split: str, tokenizer, max_length: int = 320):
                 "input_ids": enc["input_ids"],
                 "attention_mask": enc["attention_mask"],
                 "labels": labels,
+            }
+        )
+    return _ListDataset(rows)
+
+
+# --------------------------------------------------------------------------- #
+# Frame classification (slice 2)                                               #
+# --------------------------------------------------------------------------- #
+
+def _split_doc_filter(split: str):
+    from sesame_splits import SESAME_DEV_FILES, SESAME_TEST_FILES
+
+    if split == "train":
+        return None, set(SESAME_DEV_FILES) | set(SESAME_TEST_FILES)
+    if split == "dev":
+        return set(SESAME_DEV_FILES), None
+    if split == "test":
+        return set(SESAME_TEST_FILES), None
+    raise ValueError(f"unknown split {split!r}")
+
+
+def load_frame_examples(split: str) -> list[tuple[str, int, str]]:
+    """Return [(sentence_text, trigger_loc, gold_frame_name), ...] for a split.
+
+    One example per (annotation, trigger_loc) — mirrors upstream
+    tasks_from_annotated_sentences' FrameClassificationSample generation, incl.
+    the "drop the whole sentence if any trigger loc is out of range" rule.
+    """
+    import nltk
+    from nltk.corpus import framenet as fn
+
+    try:
+        nltk.data.find("corpora/framenet_v17")
+    except LookupError:
+        nltk.download("framenet_v17")
+
+    include_docs, exclude_docs = _split_doc_filter(split)
+
+    out: list[tuple[str, int, str]] = []
+    for doc in fn.docs():
+        fname = doc["filename"]
+        if exclude_docs and fname in exclude_docs:
+            continue
+        if include_docs and fname not in include_docs:
+            continue
+        for sentence in doc["sentence"]:
+            text = sentence["text"]
+            pending: list[tuple[str, int, str]] = []
+            broken = False
+            for ann in sentence["annotationSet"]:
+                if "FE" in ann and "Target" in ann and "frame" in ann:
+                    frame = ann["frame"]["name"]
+                    for target_span in ann["Target"]:
+                        loc = target_span[0]
+                        if loc >= len(text):
+                            broken = True
+                            break
+                        pending.append((text, loc, frame))
+                if broken:
+                    break
+            if not broken:
+                out.extend(pending)
+    return out
+
+
+def build_frame_dataset(split: str, tokenizer, frame2id: dict, max_length: int = 320):
+    """Tokenize marked-trigger sentences into a torch Dataset for sequence
+    classification. Label = frame id. Requires the tokenizer to already have the
+    entity-marker tokens added (train_frame.py does this)."""
+    import torch
+
+    class _ListDataset(torch.utils.data.Dataset):
+        def __init__(self, rows):
+            self.rows = rows
+
+        def __len__(self):
+            return len(self.rows)
+
+        def __getitem__(self, idx):
+            return self.rows[idx]
+
+    rows = []
+    for text, trigger_loc, frame in load_frame_examples(split):
+        if frame not in frame2id:
+            continue  # frame absent from the FrameNet vocab (shouldn't happen)
+        enc = tokenizer(
+            mark_trigger(text, trigger_loc), truncation=True, max_length=max_length
+        )
+        rows.append(
+            {
+                "input_ids": enc["input_ids"],
+                "attention_mask": enc["attention_mask"],
+                "labels": frame2id[frame],
             }
         )
     return _ListDataset(rows)

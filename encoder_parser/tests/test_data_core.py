@@ -7,7 +7,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from data import (  # noqa: E402
     IGNORE_INDEX,
     LABEL2ID,
+    TRIGGER_END,
+    TRIGGER_START,
     align_trigger_labels,
+    mark_trigger,
     predicted_trigger_locs_from_tokens,
     prf1,
     score_trigger_words,
@@ -68,6 +71,19 @@ def test_score_trigger_words_fp_and_fn():
     # gold trigger = "gave"(9); pred trigger = "chef"(4). one FP, one FN.
     tp, fp, fn = score_trigger_words(text, gold_trigger_locs=[9], pred_trigger_locs=[4])
     assert (tp, fp, fn) == (0, 1, 1)
+
+
+def test_mark_trigger_basic():
+    assert mark_trigger("The chef gave food.", 9) == "The chef <t> gave </t> food."
+
+
+def test_mark_trigger_first_word():
+    assert mark_trigger("Give it back.", 0) == "<t> Give </t> it back."
+
+
+def test_mark_trigger_snaps_off_space():
+    # a loc landing on the space before a word still marks that word
+    assert mark_trigger("a b c", 1) == "a <t> b </t> c"
 
 
 def test_prf1():

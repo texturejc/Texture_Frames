@@ -95,7 +95,19 @@ Architecture + rationale in `encoder_parser/DESIGN.md`. Built as vertical slices
   Bottom line: pipeline is sound and the encoder is at least competitive and
   likely ahead on trigger id — strong green light for slices 2 & 3.
 
-### Slice 2 — Frame classification  ▫ TODO (candidate-masked frame-embedding head)
+### Slice 2 — Frame classification  (built, awaiting first Colab run)
+DeBERTa-v3-large sequence classifier over the full frame vocab (~1221), with the
+trigger wrapped in entity markers (`<t> … </t>`); at inference logits are masked
+to the lexicon candidate frames so only a valid frame can be emitted.
+- [x] `encoder_parser/lexicon.py` — FrameNet frame vocab + candidate lookup,
+      vendored faithfully from upstream (LoaderDataCache / InferenceLoader /
+      FrameClassificationTask), nltk-only, no `nlpaug`
+- [x] `encoder_parser/data.py` — `mark_trigger`, `load_frame_examples`,
+      `build_frame_dataset`
+- [x] `encoder_parser/train_frame.py`, `eval_frame.py` (candidate-masked F1)
+- [x] `encoder_parser/train_frame.ipynb` — Colab driver
+- [x] tests: `mark_trigger` (3), `trigger_bigrams` (3) pass locally
+- [ ] **Colab run: report frame F1 vs 0.887 + lexicon coverage** ← user action
 ### Slice 3 — Argument extraction  ▫ TODO (extractive span head per role)
 
 ## Milestone 3 — Close and beat the gap  ▫ TODO
