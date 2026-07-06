@@ -18,7 +18,7 @@ Data: FrameNet 1.7 via NLTK (`framenet_v17`). Splits: Open-Sesame
 
 ---
 
-## Milestone 1 — Reproduce the baseline in Colab  ⏳ IN PROGRESS
+## Milestone 1 — Reproduce the baseline in Colab  ✅ DONE (2026-07-06)
 
 Confirm we can reproduce the upstream `base` model's published test F1 with our
 own eval harness, so later "we beat it" claims are credible.
@@ -28,8 +28,8 @@ own eval harness, so later "we beat it" claims are credible.
       (`reproduce_baseline/eval_baseline.py`)
 - [x] Colab notebook (`reproduce_baseline/reproduce_baseline.ipynb`)
 - [x] Pinned `requirements-colab.txt` (canonical env for eval + training)
-- [ ] **Run on Colab; confirm F1 within ~1 pt of the table above** ← user action
-- [ ] Record measured numbers below
+- [x] **Run on Colab; confirmed F1 within ~0.5 pt of reported** (2026-07-06, A100)
+- [x] Record measured numbers below
 
 ### Colab environment (avoids the install/protobuf failures)
 - Parser is **cloned + added to `sys.path`**, never `pip install`ed → no package
@@ -48,12 +48,22 @@ Colab image, `eval_baseline.py` drives the loop manually while calling the
 upstream `evaluate_batch` / `calc_eval_metrics` / `merge_metrics` functions
 verbatim — identical scoring, robust environment.
 
-### Measured results (fill in after Colab run)
-| Task | Reported test F1 | Measured test F1 |
-| ---- | ---------------- | ---------------- |
-| Trigger identification | 0.74 | _tbd_ |
-| Frame classification   | 0.89 | _tbd_ |
-| Argument extraction    | 0.75 | _tbd_ |
+### Measured results (2026-07-06, Colab A100, base model, test split)
+| Task | Reported test F1 | Measured test F1 | Δ |
+| ---- | ---------------- | ---------------- | ---- |
+| Trigger identification | 0.74 | 0.735 (P 0.757 / R 0.714) | −0.005 |
+| Frame classification   | 0.89 | 0.887 (P 0.887 / R 0.887) | −0.003 |
+| Argument extraction    | 0.75 | 0.753 (P 0.740 / R 0.767) | +0.003 |
+
+**Baseline reproduced** (all within ~0.5 pt; residual = tokenizer/transformers
+drift since 2023, as expected).
+
+### Speed baseline to beat  ⭐
+`196.6 ms/sample` on an A100 — 15,126 test samples took **~50 minutes**. This is
+slow because inference is 3 sequential passes of 5-way beam-search *generation*.
+The Milestone 2 encoder does one forward pass per sample with no beam search, so
+this is the number that should drop ~10–40×. Latency is a headline deliverable,
+not an afterthought.
 
 ## Milestone 2 — Encoder pipeline scaffold (DeBERTa-v3-large)  ▫ TODO
 ## Milestone 3 — Close and beat the gap  ▫ TODO
