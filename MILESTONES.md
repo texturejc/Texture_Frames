@@ -232,10 +232,12 @@ FE-menu conditioning. Single forward pass -> speed win preserved.
       +0.084 over v1's 0.628 and *faster* — the architecture change worked. Now
       only −0.041 from baseline 0.753. Precision < recall (fp 3532 > fn 2766):
       the model over-predicts, so a NULL-threshold tightening should raise F1.
-- [ ] **NULL-bias sweep (no retrain):** added to `eval_args2` — pick on dev,
-      report on test. Free lever for the P<R imbalance.
-- [ ] If sweep still short of 0.753: tuning retrain (n_negatives up for
-      precision, role_lambda, epochs) + lightweight augmentation.
+- [x] **NULL-bias sweep:** dev best +2.0 (0.746); that bias on **test = 0.715**
+      (+0.003 over 0.712). Free lever tapped — curve flat around the max. Still
+      **−0.038 vs 0.753**. Adopt null_bias +2.0.
+- [ ] Close the last 0.038: retrain lever chosen by v2 error breakdown —
+      CRF on the 3-class detection head (boundaries) and/or lightweight
+      augmentation (long-tail recall) + n_negatives/epochs tuning.
 
 ### Still queued
 - Trigger metric comparability: run the baseline model through our word-level
