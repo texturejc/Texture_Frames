@@ -50,18 +50,29 @@ def trigger_word_text(text: str, trigger_loc: int) -> str:
     return tail[0] if tail else ""
 
 
-def build_args_input(text: str, frame: str, trigger_loc: int) -> tuple[str, int, int, int]:
+def frame_fe_hint(lexicon, frame: str, max_fes: int = 20) -> str:
+    """The frame's FE 'menu' as a string — core roles first, then non-core, capped.
+    Fed into the input so the model knows which roles to look for (M3)."""
+    core, non_core = lexicon.frame_elements(frame)
+    fes = list(core) + list(non_core)
+    return "; ".join(fes[:max_fes])
+
+
+def build_args_input(
+    text: str, frame: str, trigger_loc: int, fe_hint: str = ""
+) -> tuple[str, int, int, int]:
     """Return (combined_text, prefix_len, ts, te).
 
     The trigger word is wrapped inline with predicate-position markers so the
-    model sees *where* the predicate is (M3):
-        "{frame} : {…before} <t> {trigger} </t> {after…}"
+    model sees *where* the predicate is (M3), and the frame's FE menu is listed in
+    the prefix so it knows *which roles to look for*:
+        "{frame} [{FE1}; {FE2}; …] : {…before} <t> {trigger} </t> {after…}"
     ts/te are the trigger word's span in the *original* text — callers pass them
     to `remap_fe_span` to move gold FE offsets through the inserted markers.
     """
     ts, te = trigger_word_span(text, trigger_loc)
     marked = text[:ts] + MARK_L + text[ts:te] + MARK_R + text[te:]
-    prefix = f"{frame} : "
+    prefix = f"{frame} [{fe_hint}] : " if fe_hint else f"{frame} : "
     return prefix + marked, len(prefix), ts, te
 
 
@@ -246,7 +257,7 @@ def load_args_examples(split: str) -> list[tuple[str, int, str, list[tuple[str, 
     return out
 
 
-def build_args_dataset(split: str, tokenizer, label2id: dict, max_length: int = 320):
+def build_args_dataset(split: str, tokenizer, label2id: dict, lexicon, max_length: int = 320):
     """Torch Dataset of input_ids/attention_mask/labels (BIO) for token classification."""
     import torch
 
@@ -262,7 +273,8 @@ def build_args_dataset(split: str, tokenizer, label2id: dict, max_length: int = 
 
     rows = []
     for text, trigger_loc, frame, fes in load_args_examples(split):
-        combined, prefix_len, ts, te = build_args_input(text, frame, trigger_loc)
+        hint = frame_fe_hint(lexicon, frame)
+        combined, prefix_len, ts, te = build_args_input(text, frame, trigger_loc, hint)
         fe_char_spans = [
             (*remap_fe_span(start, end, ts, te, prefix_len), name)
             for name, start, end in fes

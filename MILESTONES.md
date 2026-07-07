@@ -177,7 +177,23 @@ wrap the trigger inline with `<t> … </t>` markers.
       normalized identically before matching
 - [x] tests: build-marks-trigger, remap-around-trigger, decode-strips-markers
       (11 args tests pass locally)
-- [ ] **Colab retrain + eval: report args F1 vs 0.605 (scaffold) / 0.753 (base)**
+- [x] **Colab retrain (predicate marking only): 0.596 — flat vs 0.605 scaffold.**
+      Diagnosis: predicate localization wasn't the bottleneck (multi-predicate
+      confusion is a minority of examples). Error breakdown on 400 examples /
+      704 gold FEs: exact 363, **missed 153 (recall)**, **boundary_off 120**,
+      wrong_role 68, spurious 116. Recall + boundary dominate; the model is
+      under-informed about *which* roles to look for (wrong_role is small).
+
+### Args — FE-menu conditioning  (built, awaiting Colab retrain)
+Feed the frame's FE names into the input so the model knows the role inventory
+(mirrors how the baseline conditions). Targets the missed + wrong_role buckets.
+- [x] `frame_fe_hint` + `build_args_input(..., fe_hint)`; input is now
+      `"{frame} [{FE1}; {FE2}; …] : … <t> {trigger} </t> …"`
+- [x] `build_args_dataset` + `eval_args` thread the lexicon so train/eval inputs
+      match exactly; 13 args tests pass
+- [ ] **Colab retrain + eval: report args F1 vs 0.605 / 0.753**
+- [ ] Cheap pre-retrain check: FE-mask coverage (forced-miss recall ceiling ->
+      args soft-mask, parallel to the frame fix) — run before committing more.
 
 ### Still queued
 - Frame soft-mask sweep: run `eval_frame` bias sweep, pick the operating point

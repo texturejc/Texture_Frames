@@ -10,9 +10,15 @@ from args_data import (  # noqa: E402
     build_args_input,
     decode_bio_spans,
     fe_label_maps,
+    frame_fe_hint,
     remap_fe_span,
     score_args,
 )
+
+
+class _FakeLexicon:
+    def frame_elements(self, frame):
+        return (["Donor", "Recipient"], ["Time", "Place"])  # core, non_core
 
 FE_VOCAB = ["Agent", "Theme", "Time"]
 LABELS, L2I, I2L = fe_label_maps(FE_VOCAB)
@@ -29,6 +35,22 @@ def test_build_args_input_marks_trigger():
     assert combined == "Giving : The chef <t> gave </t> food."
     assert plen == len("Giving : ")
     assert (ts, te) == (9, 13)  # trigger span in the ORIGINAL text
+
+
+def test_frame_fe_hint_lists_core_then_noncore():
+    assert frame_fe_hint(_FakeLexicon(), "Giving") == "Donor; Recipient; Time; Place"
+    assert frame_fe_hint(_FakeLexicon(), "Giving", max_fes=2) == "Donor; Recipient"
+
+
+def test_build_args_input_with_fe_hint():
+    hint = frame_fe_hint(_FakeLexicon(), "Giving")
+    combined, plen, ts, te = build_args_input("The chef gave food.", "Giving", 9, hint)
+    assert combined == "Giving [Donor; Recipient; Time; Place] : The chef <t> gave </t> food."
+    assert plen == len(f"Giving [{hint}] : ")
+    assert (ts, te) == (9, 13)
+    # gold FE offsets still remap correctly with the longer prefix
+    s, e = remap_fe_span(0, 8, ts, te, plen)
+    assert combined[s:e] == "The chef"
 
 
 def test_remap_fe_span_around_trigger():

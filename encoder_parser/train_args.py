@@ -90,8 +90,8 @@ def train(
     )
     model.resize_token_embeddings(len(tokenizer))  # for the added <t>/</t> markers
 
-    train_ds = build_args_dataset("train", tokenizer, label2id, max_length=max_length)
-    dev_ds = build_args_dataset("dev", tokenizer, label2id, max_length=max_length)
+    train_ds = build_args_dataset("train", tokenizer, label2id, lexicon, max_length=max_length)
+    dev_ds = build_args_dataset("dev", tokenizer, label2id, lexicon, max_length=max_length)
     print(f"train examples: {len(train_ds)}   dev examples: {len(dev_ds)}")
 
     collator = DataCollatorForTokenClassification(tokenizer, label_pad_token_id=IGNORE_INDEX)

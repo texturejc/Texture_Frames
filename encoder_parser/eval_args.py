@@ -21,6 +21,7 @@ from args_data import (
     build_args_input,
     decode_bio_spans,
     fe_label_maps,
+    frame_fe_hint,
     load_args_examples,
     score_args,
 )
@@ -63,7 +64,8 @@ def evaluate_args(model, tokenizer, lexicon, split: str = "test", max_length: in
         # purely about content, not whitespace
         gold_spans = [(name, _clean_span_text(text[s:e])) for name, s, e in gold_fes]
 
-        combined, prefix_len, _, _ = build_args_input(text, frame, trigger_loc)
+        hint = frame_fe_hint(lexicon, frame)
+        combined, prefix_len, _, _ = build_args_input(text, frame, trigger_loc, hint)
         enc = tokenizer(
             combined,
             truncation=True,
