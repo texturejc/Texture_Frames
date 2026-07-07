@@ -90,16 +90,50 @@ class Lexicon:
 
     @lru_cache(1)
     def frames(self) -> list[dict]:
-        """[{name, lexical_units}, ...] from FrameNet, via nltk."""
+        """[{name, lexical_units, core_elements, non_core_elements}, ...]."""
         self.setup()
         from nltk.corpus import framenet as fn
 
         out = []
         for raw in fn.frames():
             out.append(
-                {"name": raw.name, "lexical_units": list(raw.lexUnit.keys())}
+                {
+                    "name": raw.name,
+                    "lexical_units": list(raw.lexUnit.keys()),
+                    "core_elements": [
+                        n for (n, fe) in raw.FE.items() if fe.coreType == "Core"
+                    ],
+                    "non_core_elements": [
+                        n for (n, fe) in raw.FE.items() if fe.coreType != "Core"
+                    ],
+                }
             )
         return out
+
+    @lru_cache(1)
+    def _frames_by_name(self) -> dict[str, dict]:
+        return {f["name"]: f for f in self.frames()}
+
+    @lru_cache(1)
+    def fe_vocab(self) -> list[str]:
+        """Sorted unique frame-element names across all frames (the BIO role space)."""
+        names: set[str] = set()
+        for f in self.frames():
+            names.update(f["core_elements"])
+            names.update(f["non_core_elements"])
+        return sorted(names)
+
+    def frame_elements(self, frame_name: str) -> tuple[list[str], list[str]]:
+        """(core_elements, non_core_elements) for a frame."""
+        f = self._frames_by_name().get(frame_name)
+        if f is None:
+            return [], []
+        return f["core_elements"], f["non_core_elements"]
+
+    def is_non_core(self, frame_name: str, fe_name: str) -> bool:
+        """Sesame scoring: non-core FEs count 0.5, core 1.0."""
+        f = self._frames_by_name().get(frame_name)
+        return bool(f and fe_name in f["non_core_elements"])
 
     @lru_cache(1)
     def frame_vocab(self) -> list[str]:

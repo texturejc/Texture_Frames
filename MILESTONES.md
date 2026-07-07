@@ -127,7 +127,22 @@ to the lexicon candidate frames so only a valid frame can be emitted.
     the baseline does).
   - This is the baseline's *strongest* task; a first untuned scaffold landing
     within 2.6 pts is expected. Closing it is a Milestone 3 job.
-### Slice 3 — Argument extraction  ▫ TODO (extractive span head per role)
+### Slice 3 — Argument extraction  (built, awaiting first Colab run)
+Frame-conditioned **BIO role labeling** over a global FE-name vocabulary. Input
+`{frame} | {trigger_word} : {sentence}`; at inference logits are masked to the
+frame's FEs so only valid roles emit. Weighted span F1 (non-core FEs = 0.5)
+mirrors upstream ArgumentsExtractionSample.evaluate_prediction.
+- [x] `encoder_parser/lexicon.py` — FE vocab + core/non-core per frame
+- [x] `encoder_parser/args_data.py` — load/build + pure BIO align, span decode,
+      weighted scorer
+- [x] `encoder_parser/train_args.py` (big label head; preprocess_logits caps eval
+      memory), `eval_args.py` (FE-masked weighted F1)
+- [x] `encoder_parser/train_args.ipynb` — Colab driver
+- [x] tests: `test_args_data.py` (8) — BIO align/decode round-trip + weighted
+      metric, pass locally
+- [ ] **Colab run: report args F1 vs 0.753** ← user action
+- Known scaffold limitation: trigger conveyed as a prefix word, not a marked
+  position — explicit predicate-position marking is the first M3 refinement.
 
 ## Milestone 3 — Close and beat the gap  ▫ TODO
 (includes optional shared-backbone consolidation — see DESIGN.md)
