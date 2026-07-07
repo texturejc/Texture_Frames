@@ -4,6 +4,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import random  # noqa: E402
+
 from args2_data import (  # noqa: E402
     DETECT_B,
     DETECT_I,
@@ -13,6 +15,7 @@ from args2_data import (  # noqa: E402
     detect_bio_labels,
     gold_span_token_indices,
     role_label_maps,
+    sample_negative_spans,
 )
 from args_data import IGNORE_INDEX  # noqa: E402
 
@@ -77,6 +80,22 @@ def test_decode_detect_spans_stray_I_opens_span():
     pred = [DETECT_O, DETECT_O, DETECT_O, DETECT_O, DETECT_I, DETECT_I, DETECT_O]
     spans = decode_detect_spans(OFFSETS, pred, PREFIX_LEN)
     assert spans == [(4, 5, 8, 13)]  # I without B still yields a span
+
+
+def test_sample_negative_spans_avoids_gold_and_is_deterministic():
+    sent = [4, 5, 6, 7]
+    gold = {(4, 5)}
+    a = sample_negative_spans(sent, gold, k=3, rng=random.Random(0))
+    b = sample_negative_spans(sent, gold, k=3, rng=random.Random(0))
+    assert a == b                       # deterministic for a fixed seed
+    assert (4, 5) not in a              # never emits a gold span
+    for s, e in a:
+        assert 4 <= s <= e <= 7         # within the sentence region
+        assert e - s <= 4               # respects max_width
+
+
+def test_sample_negative_spans_empty_region():
+    assert sample_negative_spans([], set(), k=3, rng=random.Random(0)) == []
 
 
 if __name__ == "__main__":

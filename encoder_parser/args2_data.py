@@ -98,6 +98,34 @@ def gold_span_token_indices(
     return out
 
 
+def sample_negative_spans(
+    sent_tok_indices: list[int],
+    gold_ranges: set[tuple[int, int]],
+    k: int,
+    rng,
+    max_width: int = 5,
+) -> list[tuple[int, int]]:
+    """Sample up to k contiguous token ranges from the sentence region that are NOT
+    gold spans — labeled NULL so the role head learns to reject Head-A's spurious
+    detections (v1's #1 false-positive source). `rng` is a seeded random.Random for
+    determinism; returns (start_tok, end_tok_inclusive) pairs."""
+    if not sent_tok_indices:
+        return []
+    lo, hi = sent_tok_indices[0], sent_tok_indices[-1]
+    out: list[tuple[int, int]] = []
+    seen = set(gold_ranges)
+    tries = 0
+    while len(out) < k and tries < k * 10 + 10:
+        tries += 1
+        s = rng.randint(lo, hi)
+        e = s + rng.randint(0, min(max_width - 1, hi - s))
+        if (s, e) in seen:
+            continue
+        seen.add((s, e))
+        out.append((s, e))
+    return out
+
+
 def decode_detect_spans(
     offset_mapping: list[tuple[int, int]],
     detect_pred: list[int],
@@ -138,9 +166,15 @@ def decode_detect_spans(
 # Dataset                                                                      #
 # --------------------------------------------------------------------------- #
 
-def build_args2_dataset(split: str, tokenizer, role2id: dict, lexicon, max_length: int = 320):
+def build_args2_dataset(
+    split: str, tokenizer, role2id: dict, lexicon, max_length: int = 320, n_negatives: int = 4
+):
     """Torch Dataset of rows: input_ids, attention_mask, detect_labels (BIO 3-class),
-    and `spans` = [(start_tok, end_tok_inclusive, role_id), ...] for the role head."""
+    and `spans` = [(start_tok, end_tok_inclusive, role_id), ...] for the role head —
+    gold spans (real FE role) plus `n_negatives` sampled NULL spans per example so
+    the role head learns to reject spurious detections."""
+    import random
+
     import torch
 
     class _ListDataset(torch.utils.data.Dataset):
@@ -153,8 +187,9 @@ def build_args2_dataset(split: str, tokenizer, role2id: dict, lexicon, max_lengt
         def __getitem__(self, idx):
             return self.rows[idx]
 
+    null_id = role2id[NULL_ROLE]
     rows = []
-    for text, trigger_loc, frame, fes in load_args_examples(split):
+    for i, (text, trigger_loc, frame, fes) in enumerate(load_args_examples(split)):
         hint = frame_fe_hint(lexicon, frame)
         combined, prefix_len, ts, te = build_args_input(text, frame, trigger_loc, hint)
         remapped = [
@@ -166,11 +201,19 @@ def build_args2_dataset(split: str, tokenizer, role2id: dict, lexicon, max_lengt
         n_tok = len(enc["input_ids"])
         om = enc["offset_mapping"]
         detect = detect_bio_labels(om, [(s, e) for s, e, _ in remapped], prefix_len, combined)
-        span_records = [
-            (a, b, role2id[name])
+        gold = [
+            (a, b, name)
             for (a, b, name) in gold_span_token_indices(om, remapped, prefix_len, combined)
             if name in role2id and b < n_tok
         ]
+        span_records = [(a, b, role2id[name]) for (a, b, name) in gold]
+
+        sent_toks = [j for j, (s, e) in enumerate(om) if e > prefix_len]
+        gold_ranges = {(a, b) for (a, b, _) in gold}
+        rng = random.Random(1234 + i)  # deterministic per example
+        for (a, b) in sample_negative_spans(sent_toks, gold_ranges, n_negatives, rng):
+            span_records.append((a, b, null_id))
+
         rows.append(
             {
                 "input_ids": enc["input_ids"],
