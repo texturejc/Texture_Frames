@@ -71,6 +71,7 @@ def train(
     max_length: int = 320,
     role_lambda: float = 1.0,
     n_negatives: int = 4,
+    augment: int = 0,
     warmup_ratio: float = 0.06,
     weight_decay: float = 0.01,
 ):
@@ -88,7 +89,9 @@ def train(
     model = Args2Model.from_pretrained(base_model, num_roles=len(roles), role_lambda=role_lambda)
     model.resize_token_embeddings(len(tokenizer))
 
-    train_ds = build_args2_dataset("train", tokenizer, role2id, lexicon, max_length, n_negatives)
+    train_ds = build_args2_dataset(
+        "train", tokenizer, role2id, lexicon, max_length, n_negatives, augment=augment
+    )
     dev_ds = build_args2_dataset("dev", tokenizer, role2id, lexicon, max_length, n_negatives)
     print(f"train examples: {len(train_ds)}   dev examples: {len(dev_ds)}")
 
@@ -144,6 +147,7 @@ if __name__ == "__main__":
     p.add_argument("--lr", type=float, default=1e-5)
     p.add_argument("--max-length", type=int, default=320)
     p.add_argument("--role-lambda", type=float, default=1.0)
+    p.add_argument("--augment", type=int, default=0)
     a = p.parse_args()
 
     model, tokenizer, lexicon, role2id, id2role = train(
@@ -154,6 +158,7 @@ if __name__ == "__main__":
         lr=a.lr,
         max_length=a.max_length,
         role_lambda=a.role_lambda,
+        augment=a.augment,
     )
 
     from eval_args2 import evaluate_args2, print_report

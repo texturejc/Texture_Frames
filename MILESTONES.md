@@ -235,9 +235,16 @@ FE-menu conditioning. Single forward pass -> speed win preserved.
 - [x] **NULL-bias sweep:** dev best +2.0 (0.746); that bias on **test = 0.715**
       (+0.003 over 0.712). Free lever tapped — curve flat around the max. Still
       **−0.038 vs 0.753**. Adopt null_bias +2.0.
-- [ ] Close the last 0.038: retrain lever chosen by v2 error breakdown —
-      CRF on the 3-class detection head (boundaries) and/or lightweight
-      augmentation (long-tail recall) + n_negatives/epochs tuning.
+- [x] **v2 error breakdown** (704 gold, at +2.0): exact 489, missed 84,
+      spurious 75, boundary 67, wrong_role 64 — v2 improved *every* v1 bucket
+      (exact 363→489, boundary 120→67, missed 153→84). Remaining tail is
+      balanced; biggest addressable = missed + wrong_role (long tail).
+- [x] **Augmentation (built, awaiting retrain).** `augment.py`: WordNet synonym
+      replacement with char-offset remapping of trigger + FE spans (pure part
+      unit-tested; verified end-to-end locally). `build_args2_dataset(augment=N)`
+      adds N synonym copies per arg-bearing train example. Tuning retrain config:
+      epochs 6, n_negatives 6, augment 1.
+- [ ] **Colab tuning retrain + sweep: report v2+aug F1 vs 0.715 / 0.753**
 
 ### Still queued
 - Trigger metric comparability: run the baseline model through our word-level

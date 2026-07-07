@@ -167,12 +167,16 @@ def decode_detect_spans(
 # --------------------------------------------------------------------------- #
 
 def build_args2_dataset(
-    split: str, tokenizer, role2id: dict, lexicon, max_length: int = 320, n_negatives: int = 4
+    split: str, tokenizer, role2id: dict, lexicon, max_length: int = 320,
+    n_negatives: int = 4, augment: int = 0,
 ):
     """Torch Dataset of rows: input_ids, attention_mask, detect_labels (BIO 3-class),
     and `spans` = [(start_tok, end_tok_inclusive, role_id), ...] for the role head —
     gold spans (real FE role) plus `n_negatives` sampled NULL spans per example so
-    the role head learns to reject spurious detections."""
+    the role head learns to reject spurious detections.
+
+    `augment` (train split only): number of synonym-augmented copies to add per
+    arg-bearing example — recovers the long-tail edge the baseline gets from nlpaug."""
     import random
 
     import torch
@@ -187,9 +191,25 @@ def build_args2_dataset(
         def __getitem__(self, idx):
             return self.rows[idx]
 
+    examples = list(load_args_examples(split))
+    if split == "train" and augment > 0:
+        from augment import augment_example, wordnet_synonym
+
+        arng = random.Random(2024)
+        extra = []
+        for (text, loc, frame, fes) in examples:
+            if not fes:
+                continue  # only augment examples that carry arguments
+            for _ in range(augment):
+                res = augment_example(text, loc, fes, wordnet_synonym, arng)
+                if res:
+                    extra.append((res[0], res[1], frame, res[2]))
+        print(f"augmentation: +{len(extra)} examples (x{augment} on arg-bearing)")
+        examples += extra
+
     null_id = role2id[NULL_ROLE]
     rows = []
-    for i, (text, trigger_loc, frame, fes) in enumerate(load_args_examples(split)):
+    for i, (text, trigger_loc, frame, fes) in enumerate(examples):
         hint = frame_fe_hint(lexicon, frame)
         combined, prefix_len, ts, te = build_args_input(text, frame, trigger_loc, hint)
         remapped = [
