@@ -53,9 +53,16 @@ def align_fe_bio(
     fe_char_spans: list[tuple[int, int, str]],
     label2id: dict[str, int],
     prefix_len: int,
+    text: str,
 ) -> list[int]:
     """Per-token BIO labels. fe_char_spans are (start, end, fe_name) in *combined*
-    coords. Prefix/special tokens (end <= prefix_len) get IGNORE_INDEX."""
+    coords. Prefix/special tokens (end <= prefix_len) get IGNORE_INDEX.
+
+    The token start is snapped past any leading whitespace before the containment
+    test: DeBERTa's SentencePiece tokenizer reports a word's token as starting on
+    the space before it (the ▁ marker), so a raw `start <= ts < end` test drops
+    the FIRST token of every span. Snapping fixes that without over-including the
+    token that follows the span (its snapped start lands at/after `end`)."""
     o_id = label2id["O"]
     labels: list[int] = []
     prev_key = None
@@ -64,9 +71,10 @@ def align_fe_bio(
             labels.append(IGNORE_INDEX)
             prev_key = None
             continue
+        ets = snap_to_word_start(text, ts)  # skip the leading-space offset
         found = None
         for s, e, name in fe_char_spans:
-            if s <= ts < e:
+            if s <= ets < e:
                 found = (s, e, name)
                 break
         if found is None:
@@ -213,7 +221,9 @@ def build_args_dataset(split: str, tokenizer, label2id: dict, max_length: int = 
         enc = tokenizer(
             combined, truncation=True, max_length=max_length, return_offsets_mapping=True
         )
-        labels = align_fe_bio(enc["offset_mapping"], fe_char_spans, label2id, prefix_len)
+        labels = align_fe_bio(
+            enc["offset_mapping"], fe_char_spans, label2id, prefix_len, combined
+        )
         rows.append(
             {
                 "input_ids": enc["input_ids"],

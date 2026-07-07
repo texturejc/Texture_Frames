@@ -39,16 +39,26 @@ OFFSETS = [(0, 0), (0, 1), (2, 3), (4, 5), (6, 7), (8, 10), (11, 13), (0, 0)]
 def test_align_fe_bio_marks_only_sentence_tokens():
     # Agent span "ab" at sentence [0,2) -> combined (8,10)
     fe_char_spans = [(8, 10, "Agent")]
-    labels = align_fe_bio(OFFSETS, fe_char_spans, L2I, PREFIX_LEN)
+    labels = align_fe_bio(OFFSETS, fe_char_spans, L2I, PREFIX_LEN, COMBINED)
     assert labels == [IGNORE_INDEX] * 5 + [L2I["B-Agent"], L2I["O"], IGNORE_INDEX]
 
 
 def test_align_fe_bio_multi_token_span_gets_B_then_I():
     # a span covering both "ab"(8,10) and "cd"(11,13)
     fe_char_spans = [(8, 13, "Theme")]
-    labels = align_fe_bio(OFFSETS, fe_char_spans, L2I, PREFIX_LEN)
+    labels = align_fe_bio(OFFSETS, fe_char_spans, L2I, PREFIX_LEN, COMBINED)
     assert labels[5] == L2I["B-Theme"]
     assert labels[6] == L2I["I-Theme"]
+
+
+def test_align_fe_bio_snaps_leading_space_offset():
+    # DeBERTa quirk: the token for "cd" reports its start on the preceding space
+    # (index 10, ' ') instead of 11. Without snapping, the span "cd" would drop
+    # its only token and be lost. Snapping recovers it as B-Theme.
+    offsets = [(0, 0), (0, 1), (2, 3), (4, 5), (6, 7), (8, 10), (10, 13), (0, 0)]
+    fe_char_spans = [(11, 13, "Theme")]  # "cd" at sentence [3,5) -> combined (11,13)
+    labels = align_fe_bio(offsets, fe_char_spans, L2I, PREFIX_LEN, COMBINED)
+    assert labels[6] == L2I["B-Theme"]  # the leading-space token is NOT dropped
 
 
 def test_decode_bio_spans_roundtrip():
