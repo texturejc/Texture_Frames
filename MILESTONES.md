@@ -140,9 +140,26 @@ mirrors upstream ArgumentsExtractionSample.evaluate_prediction.
 - [x] `encoder_parser/train_args.ipynb` — Colab driver
 - [x] tests: `test_args_data.py` (8) — BIO align/decode round-trip + weighted
       metric, pass locally
-- [ ] **Colab run: report args F1 vs 0.753** ← user action
-- Known scaffold limitation: trigger conveyed as a prefix word, not a marked
-  position — explicit predicate-position marking is the first M3 refinement.
+- [x] **Colab run (A100, DeBERTa-v3-large, bf16, 5 epochs):**
+
+  | metric | encoder | baseline |
+  | ------ | ------- | -------- |
+  | args F1 (weighted span) | **0.605** (P 0.598 / R 0.611) | 0.753 |
+  | token-level acc (proxy) | 0.766 | — |
+  | speed | 62 ms/example | — |
+
+  First run scored 0.009 due to a BIO-alignment bug (DeBERTa leading-space
+  offsets dropped the first token of every span); fixed + retrained -> 0.605.
+  - **token 0.766 vs span 0.605**: the model tags most tokens right, but exact
+    span-match is unforgiving — boundaries are often a token off.
+  - **Below baseline (−0.148)** on its weakest task; this is the scaffold with
+    no predicate-position marking. Biggest M3 lever: mark the trigger inline so
+    the model knows *where* the predicate is, not just its word.
+
+Milestone 2 complete: all three slices run end-to-end through baseline-comparable
+metrics. Scorecard — trigger 0.751 > 0.735 ✓ | frame 0.861 vs 0.887 (soft-mask
+sweep pending) | args 0.605 vs 0.753. Not yet beating overall; M3 is where that's
+decided (and not guaranteed).
 
 ## Milestone 3 — Close and beat the gap  ▫ TODO
 (includes optional shared-backbone consolidation — see DESIGN.md)
