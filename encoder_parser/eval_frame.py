@@ -22,7 +22,7 @@ import time
 
 import torch
 
-from data import load_frame_examples, mark_trigger
+from data import build_frame_input, frame_candidate_hint, load_frame_examples
 
 DEFAULT_BIASES = [float("inf"), 15.0, 10.0, 7.0, 5.0, 3.0, 0.0]
 
@@ -55,8 +55,10 @@ def evaluate_frame(
     total = 0
     t0 = time.time()
     for text, trigger_loc, gold_frame in examples:
+        candidates = lexicon.candidate_frames(text, trigger_loc)
+        hint = frame_candidate_hint(candidates)
         enc = tokenizer(
-            mark_trigger(text, trigger_loc),
+            build_frame_input(text, trigger_loc, hint),
             truncation=True,
             max_length=max_length,
             return_tensors="pt",
@@ -66,7 +68,6 @@ def evaluate_frame(
             attention_mask=enc["attention_mask"].to(device),
         ).logits[0]
 
-        candidates = lexicon.candidate_frames(text, trigger_loc)
         cand_ids = [frame2id[c] for c in candidates if c in frame2id]
         gold_id = frame2id.get(gold_frame)
         if gold_frame in candidates:

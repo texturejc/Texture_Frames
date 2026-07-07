@@ -10,6 +10,8 @@ from data import (  # noqa: E402
     TRIGGER_END,
     TRIGGER_START,
     align_trigger_labels,
+    build_frame_input,
+    frame_candidate_hint,
     mark_trigger,
     predicted_trigger_locs_from_tokens,
     prf1,
@@ -79,6 +81,20 @@ def test_mark_trigger_basic():
 
 def test_mark_trigger_first_word():
     assert mark_trigger("Give it back.", 0) == "<t> Give </t> it back."
+
+
+def test_frame_candidate_hint_joins_and_caps():
+    assert frame_candidate_hint(["Giving", "Sending", "Commerce_sell"]) == \
+        "Giving; Sending; Commerce_sell"
+    assert frame_candidate_hint(["A", "B", "C"], max_cands=2) == "A; B"
+
+
+def test_build_frame_input_with_and_without_hint():
+    hint = frame_candidate_hint(["Giving", "Sending"])
+    assert build_frame_input("The chef gave food.", 9, hint) == \
+        "[Giving; Sending] : The chef <t> gave </t> food."
+    # no hint -> plain marked sentence (back-compatible)
+    assert build_frame_input("The chef gave food.", 9) == "The chef <t> gave </t> food."
 
 
 def test_mark_trigger_snaps_off_space():

@@ -202,9 +202,12 @@ recovered because the model isn't confident on non-candidate golds (a
 *discrimination* gap, not a mask gap). Adopt B=10 (free, dev-justified) but
 **frame is still −0.024 vs 0.887**. Caveat: dev 0.891 "beats" only the
 baseline's *test* 0.887; baseline dev is ~0.91, so test-vs-test we're behind.
-- [ ] **Frame retrain w/ candidate-frame-name conditioning** (feed candidate
-      frames into the input, mirroring the args FE-menu win) to close the
-      discrimination gap. Small, high-confidence.
+- [x] **Frame candidate-name conditioning — built, awaiting retrain.**
+      `frame_candidate_hint` + `build_frame_input`; input is now
+      `"[{cand1}; {cand2}; …] : … <t> {trigger} </t> …"`. `build_frame_dataset`
+      + `eval_frame` thread the lexicon so train/eval inputs match. 13 data
+      tests pass. Retrain frame, then re-run the soft-mask sweep on top.
+- [ ] **Colab: retrain frame + sweep; report test acc vs 0.887**
 
 ### Still queued
 - Trigger metric comparability: run the baseline model through our word-level
