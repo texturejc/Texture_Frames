@@ -202,9 +202,18 @@ recovered because the model isn't confident on non-candidate golds (a
 *discrimination* gap, not a mask gap). Adopt B=10 (free, dev-justified) but
 **frame is still −0.024 vs 0.887**. Caveat: dev 0.891 "beats" only the
 baseline's *test* 0.887; baseline dev is ~0.91, so test-vs-test we're behind.
-- [ ] **Frame retrain w/ candidate-frame-name conditioning** (feed candidate
-      frames into the input, mirroring the args FE-menu win) to close the
-      discrimination gap. Small, high-confidence.
+- [x] **Frame candidate-name conditioning — TRIED, FAILED, REVERTED.**
+      Retrained with `[cand1; cand2; …] :` prepended to the input. Test dropped
+      **0.863 → 0.816** (−0.047). Lesson: unlike args (per-token, where the FE
+      menu informs each decision without diluting), frame is a *sequence-level*
+      [CLS]-pooled task — prepending a long candidate list dilutes the pooled
+      representation and invites a "list → dominant frame" shortcut that hurts
+      the ambiguous triggers we wanted to fix. Reverted (git revert). Best frame
+      stays the original model + soft-mask B=10 = **0.863**.
+- [ ] **Frame discrimination lever = marker-token pooling** (pool the `<t>`
+      trigger-marker hidden state instead of [CLS]; entity-marker pooling à la
+      relation extraction). Custom head, moderate build. OR accept 0.863 as
+      "competitive" and spend the effort on args v2. **User decision pending.**
 
 ### Still queued
 - Trigger metric comparability: run the baseline model through our word-level
