@@ -210,10 +210,15 @@ baseline's *test* 0.887; baseline dev is ~0.91, so test-vs-test we're behind.
       representation and invites a "list → dominant frame" shortcut that hurts
       the ambiguous triggers we wanted to fix. Reverted (git revert). Best frame
       stays the original model + soft-mask B=10 = **0.863**.
-- [ ] **Frame discrimination lever = marker-token pooling** (pool the `<t>`
-      trigger-marker hidden state instead of [CLS]; entity-marker pooling à la
-      relation extraction). Custom head, moderate build. OR accept 0.863 as
-      "competitive" and spend the effort on args v2. **User decision pending.**
+- [x] **Frame v2 — marker-token pooling (BUILT + locally verified, awaiting retrain).**
+      Pool the `<t>`/`</t>` marker hidden states (concat) instead of [CLS], to close
+      the discrimination gap soft-mask/conditioning couldn't. Mirrors the args v2
+      infra: `frame2_data.py` (marker-position finder, pure-tested), `model_frame2.py`
+      (marker-pooled classifier), `train_frame2.py` (position-carrying collator +
+      Trainer), `eval_frame2.py` (reuses eval_frame's candidate sweep + report),
+      `train_frame2.ipynb`. 5 frame2 tests pass (marker-find, forward/backprop,
+      collator, trainer step). Keeps v1 frame code intact for comparison.
+- [ ] **Colab retrain + sweep: report frame2 acc vs 0.887 (v1 0.863)**
 
 ### Args v2 — detect-then-classify  (BUILT + locally verified, awaiting Colab retrain)
 Replaces v1's flat 2,400-way BIO with two heads on one DeBERTa backbone
