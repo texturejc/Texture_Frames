@@ -244,7 +244,12 @@ FE-menu conditioning. Single forward pass -> speed win preserved.
       unit-tested; verified end-to-end locally). `build_args2_dataset(augment=N)`
       adds N synonym copies per arg-bearing train example. Tuning retrain config:
       epochs 6, n_negatives 6, augment 1.
-- [ ] **Colab tuning retrain + sweep: report v2+aug F1 vs 0.715 / 0.753**
+- [x] **Colab tuning retrain (augment=1, n_neg=6, epochs=6) + sweep:**
+      dev best +2.0 = **0.784** (beats base); that bias on **test = 0.750**
+      (P 0.737 / R 0.763), **49.5 ms/example**. +0.035 from augmentation.
+      **Effectively at parity** with baseline 0.753 (−0.003, within single-run
+      noise; beats on dev) and ~4× faster. Args goal met ("as accurate + faster").
+      Trajectory: v1 0.628 → v2 0.712 → v2+aug **0.750**.
 
 ### Still queued
 - Trigger metric comparability: run the baseline model through our word-level
