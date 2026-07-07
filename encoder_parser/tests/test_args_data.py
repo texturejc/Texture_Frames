@@ -10,6 +10,7 @@ from args_data import (  # noqa: E402
     build_args_input,
     decode_bio_spans,
     fe_label_maps,
+    remap_fe_span,
     score_args,
 )
 
@@ -22,12 +23,24 @@ def test_fe_label_maps():
     assert L2I["O"] == 0 and L2I["B-Agent"] == 1 and L2I["I-Time"] == 6
 
 
-def test_build_args_input():
-    combined, plen = build_args_input("The chef gave food.", "Giving", "gave")
-    assert combined == "Giving | gave : The chef gave food."
-    assert plen == len("Giving | gave : ")
-    # a sentence offset maps into the sentence region of combined
-    assert combined[plen:] == "The chef gave food."
+def test_build_args_input_marks_trigger():
+    # "gave" is the word at loc 9 in "The chef gave food."
+    combined, plen, ts, te = build_args_input("The chef gave food.", "Giving", 9)
+    assert combined == "Giving : The chef <t> gave </t> food."
+    assert plen == len("Giving : ")
+    assert (ts, te) == (9, 13)  # trigger span in the ORIGINAL text
+
+
+def test_remap_fe_span_around_trigger():
+    # original "The chef gave food.", trigger "gave" = (9, 13), prefix "Giving : "
+    ts, te, plen = 9, 13, len("Giving : ")
+    combined, *_ = build_args_input("The chef gave food.", "Giving", 9)
+    # FE before the trigger: "The chef" [0,8) -> lands before <t>, text preserved
+    s, e = remap_fe_span(0, 8, ts, te, plen)
+    assert combined[s:e] == "The chef"
+    # FE after the trigger: "food" [14,18) -> lands after </t>, text preserved
+    s, e = remap_fe_span(14, 18, ts, te, plen)
+    assert combined[s:e] == "food"
 
 
 # combined = "F | g : ab cd", prefix_len = 8, sentence "ab cd"
@@ -71,6 +84,18 @@ def test_decode_bio_spans_multitoken():
     pred_ids = [0, 0, 0, 0, 0, L2I["B-Theme"], L2I["I-Theme"], 0]
     spans = decode_bio_spans(OFFSETS, pred_ids, I2L, PREFIX_LEN, COMBINED)
     assert spans == [("Theme", "ab cd")]
+
+
+def test_decode_bio_spans_strips_predicate_markers():
+    # a predicted span that abuts a marker: "<t> gave" should clean to "gave"
+    combined = "Giving : The chef <t> gave </t> food."
+    # token "gave" at combined[22:26]; include the marker token to prove stripping
+    offsets = [(0, 0), (0, 6), (7, 8), (9, 12), (13, 17), (18, 21), (22, 26), (0, 0)]
+    plen = len("Giving : ")
+    # label the <t> token and the gave token both as B/I-Agent
+    pred_ids = [0, 0, 0, 0, 0, L2I["B-Agent"], L2I["I-Agent"], 0]
+    spans = decode_bio_spans(offsets, pred_ids, I2L, plen, combined)
+    assert spans == [("Agent", "gave")]  # marker text removed, whitespace collapsed
 
 
 def test_score_args_core_and_noncore_weighting():

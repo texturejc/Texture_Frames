@@ -17,12 +17,12 @@ import time
 import torch
 
 from args_data import (
+    _clean_span_text,
     build_args_input,
     decode_bio_spans,
     fe_label_maps,
     load_args_examples,
     score_args,
-    trigger_word_text,
 )
 
 
@@ -59,10 +59,11 @@ def evaluate_args(model, tokenizer, lexicon, split: str = "test", max_length: in
     tp = fp = fn = 0.0
     t0 = time.time()
     for text, trigger_loc, frame, gold_fes in examples:
-        gold_spans = [(name, text[s:e].strip()) for name, s, e in gold_fes]
+        # normalize gold the same way decode cleans predictions, so matching is
+        # purely about content, not whitespace
+        gold_spans = [(name, _clean_span_text(text[s:e])) for name, s, e in gold_fes]
 
-        trig = trigger_word_text(text, trigger_loc)
-        combined, prefix_len = build_args_input(text, frame, trig)
+        combined, prefix_len, _, _ = build_args_input(text, frame, trigger_loc)
         enc = tokenizer(
             combined,
             truncation=True,

@@ -161,5 +161,28 @@ metrics. Scorecard — trigger 0.751 > 0.735 ✓ | frame 0.861 vs 0.887 (soft-ma
 sweep pending) | args 0.605 vs 0.753. Not yet beating overall; M3 is where that's
 decided (and not guaranteed).
 
-## Milestone 3 — Close and beat the gap  ▫ TODO
-(includes optional shared-backbone consolidation — see DESIGN.md)
+## Milestone 3 — Close and beat the gap  ⏳ IN PROGRESS
+
+### Args — predicate-position marking  (built, awaiting Colab retrain)
+The scaffold conveyed the trigger only as a word in the prefix, so on multi-
+predicate sentences the model couldn't tell *which* verb's arguments to extract
+(diagnostic showed role-scramble + fragmentation on repeated sentences). Fix:
+wrap the trigger inline with `<t> … </t>` markers.
+- [x] `args_data.build_args_input` now returns `(combined, prefix_len, ts, te)`
+      and marks the trigger; input is `"{frame} : … <t> {trigger} </t> …"`
+- [x] `remap_fe_span` moves gold FE offsets through the inserted markers
+      (start uses `>=`, end uses `>` so trigger-adjacent FEs land correctly)
+- [x] `<t>`/`</t>` added as special tokens + `resize_token_embeddings` in
+      `train_args`; decode strips any marker a span abuts; gold/pred whitespace
+      normalized identically before matching
+- [x] tests: build-marks-trigger, remap-around-trigger, decode-strips-markers
+      (11 args tests pass locally)
+- [ ] **Colab retrain + eval: report args F1 vs 0.605 (scaffold) / 0.753 (base)**
+
+### Still queued
+- Frame soft-mask sweep: run `eval_frame` bias sweep, pick the operating point
+  that recovers the 2.2% hard-mask ceiling (target > 0.861).
+- Trigger metric comparability: run the baseline model through our word-level
+  metric for an airtight head-to-head.
+- Batched eval for apples-to-apples ms/example vs the baseline's 196.6.
+- Optional shared-backbone consolidation — see DESIGN.md.

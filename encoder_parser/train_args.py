@@ -2,8 +2,10 @@
 Fine-tune DeBERTa-v3-large for argument extraction (frame-element role labeling).
 
 Frame-conditioned BIO token classification over the global FE-name vocabulary.
-Input: "{frame} | {trigger_word} : {sentence}". At inference (eval_args.py) the
-label logits are masked to the frame's FEs so only valid roles are emitted.
+Input: "{frame} : {…}<t> {trigger} </t>{…}" — the trigger is wrapped inline with
+predicate-position markers so the model sees *where* the predicate is (M3). At
+inference (eval_args.py) the label logits are masked to the frame's FEs so only
+valid roles are emitted.
 """
 from __future__ import annotations
 
@@ -24,6 +26,7 @@ from transformers import (
 )
 
 from args_data import IGNORE_INDEX, build_args_dataset, fe_label_maps
+from data import TRIGGER_END, TRIGGER_START
 from lexicon import Lexicon
 
 
@@ -74,6 +77,9 @@ def train(
 
     tokenizer = AutoTokenizer.from_pretrained(base_model)
     assert tokenizer.is_fast, "need a fast tokenizer for offset_mapping"
+    tokenizer.add_special_tokens(
+        {"additional_special_tokens": [TRIGGER_START, TRIGGER_END]}
+    )
 
     model = AutoModelForTokenClassification.from_pretrained(
         base_model,
@@ -82,6 +88,7 @@ def train(
         label2id=label2id,
         torch_dtype=torch.float32,
     )
+    model.resize_token_embeddings(len(tokenizer))  # for the added <t>/</t> markers
 
     train_ds = build_args_dataset("train", tokenizer, label2id, max_length=max_length)
     dev_ds = build_args_dataset("dev", tokenizer, label2id, max_length=max_length)

@@ -12,30 +12,73 @@ Pure functions (no torch/transformers) are unit-tested in tests/.
 """
 from __future__ import annotations
 
-from data import _split_doc_filter, snap_to_word_start, whitespace_words
+from data import (
+    TRIGGER_END,
+    TRIGGER_START,
+    _split_doc_filter,
+    snap_to_word_start,
+    whitespace_words,
+)
 
 IGNORE_INDEX = -100
+
+# Predicate-position markers inserted around the trigger word (M3): tells the
+# model *where* the predicate is, not just its identity.
+MARK_L = f"{TRIGGER_START} "  # "<t> "
+MARK_R = f" {TRIGGER_END}"    # " </t>"
 
 
 # --------------------------------------------------------------------------- #
 # Pure helpers                                                                 #
 # --------------------------------------------------------------------------- #
 
-def trigger_word_text(text: str, trigger_loc: int) -> str:
-    """The whitespace word containing trigger_loc."""
+def trigger_word_span(text: str, trigger_loc: int) -> tuple[int, int]:
+    """(start, end) of the whitespace word containing trigger_loc."""
     loc = snap_to_word_start(text, trigger_loc)
     for s, e in whitespace_words(text):
         if s <= loc < e:
-            return text[s:e]
-    tail = text[loc:].split()
+            return s, e
+    return loc, loc
+
+
+def trigger_word_text(text: str, trigger_loc: int) -> str:
+    """The whitespace word containing trigger_loc."""
+    s, e = trigger_word_span(text, trigger_loc)
+    if e > s:
+        return text[s:e]
+    tail = text[s:].split()
     return tail[0] if tail else ""
 
 
-def build_args_input(text: str, frame: str, trigger_word: str) -> tuple[str, int]:
-    """Return (combined_text, prefix_len). Sentence chars start at prefix_len, so a
-    sentence offset o maps to combined offset o + prefix_len."""
-    prefix = f"{frame} | {trigger_word} : "
-    return prefix + text, len(prefix)
+def build_args_input(text: str, frame: str, trigger_loc: int) -> tuple[str, int, int, int]:
+    """Return (combined_text, prefix_len, ts, te).
+
+    The trigger word is wrapped inline with predicate-position markers so the
+    model sees *where* the predicate is (M3):
+        "{frame} : {…before} <t> {trigger} </t> {after…}"
+    ts/te are the trigger word's span in the *original* text — callers pass them
+    to `remap_fe_span` to move gold FE offsets through the inserted markers.
+    """
+    ts, te = trigger_word_span(text, trigger_loc)
+    marked = text[:ts] + MARK_L + text[ts:te] + MARK_R + text[te:]
+    prefix = f"{frame} : "
+    return prefix + marked, len(prefix), ts, te
+
+
+def remap_fe_span(start: int, end: int, ts: int, te: int, prefix_len: int) -> tuple[int, int]:
+    """Move an FE char span from original-sentence coords into the marked
+    *combined* coords produced by build_args_input.
+
+    Start boundaries use `>=` and end boundaries use `>` so a span that abuts the
+    trigger lands on the correct side of the markers: an FE ending exactly at the
+    trigger start is *not* pushed past MARK_L, and an FE starting exactly at the
+    trigger start (i.e. containing it) *is*."""
+    def shift(p: int, is_end: bool) -> int:
+        past_left = (p > ts) if is_end else (p >= ts)
+        past_right = (p > te) if is_end else (p >= te)
+        return p + (len(MARK_L) if past_left else 0) + (len(MARK_R) if past_right else 0)
+
+    return shift(start, False) + prefix_len, shift(end, True) + prefix_len
 
 
 def fe_label_maps(fe_vocab: list[str]) -> tuple[list[str], dict[str, int], dict[int, str]]:
@@ -124,7 +167,13 @@ def decode_bio_spans(
                 cur = [fe, ts, te]
     if cur:
         spans.append(cur)
-    return [(fe, combined_text[s:e].strip()) for fe, s, e in spans]
+    return [(fe, _clean_span_text(combined_text[s:e])) for fe, s, e in spans]
+
+
+def _clean_span_text(t: str) -> str:
+    """Drop any predicate markers a span may abut and normalize whitespace."""
+    t = t.replace(TRIGGER_START, " ").replace(TRIGGER_END, " ")
+    return " ".join(t.split())
 
 
 def score_args(
@@ -213,10 +262,10 @@ def build_args_dataset(split: str, tokenizer, label2id: dict, max_length: int = 
 
     rows = []
     for text, trigger_loc, frame, fes in load_args_examples(split):
-        trig = trigger_word_text(text, trigger_loc)
-        combined, prefix_len = build_args_input(text, frame, trig)
+        combined, prefix_len, ts, te = build_args_input(text, frame, trigger_loc)
         fe_char_spans = [
-            (start + prefix_len, end + prefix_len, name) for name, start, end in fes
+            (*remap_fe_span(start, end, ts, te, prefix_len), name)
+            for name, start, end in fes
         ]
         enc = tokenizer(
             combined, truncation=True, max_length=max_length, return_offsets_mapping=True
