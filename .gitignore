@@ -3,3 +3,7 @@ scratchpad/
 __pycache__/
 outputs/
 .ipynb_checkpoints/
+
+*.egg-info/
+build/
+dist/

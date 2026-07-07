@@ -226,6 +226,21 @@ baseline's *test* 0.887; baseline dev is ~0.91, so test-vs-test we're behind.
       2.2% candidate-coverage ceiling, which soft-mask can't recover — a hard,
       low-payoff lever. **Frame plateaus ~0.86–0.87; banked as competitive.**
 
+## Milestone 4 — pip-installable library  ⏳ IN PROGRESS
+
+Wrap the three trained heads into `texture-frames`, installable via
+`pip install git+https://github.com/texturejc/Texture_Frames`.
+- [x] `src/texture_frames/` package (src-layout); runtime modules copied from
+      `encoder_parser/` with relativized imports; vendored-parser hack stripped.
+- [x] `pipeline.py` — `FrameParser.parse(text)` chains trigger → frame → args on
+      raw text, returns `FrameAnnotation(trigger, frame, [Argument(role, text, …)])`.
+- [x] `weights.py` — HF Hub download + rebuild custom heads (from_config backbone,
+      resize-then-load_state_dict). `pyproject.toml`, `README.md`, package tests.
+- [x] editable install + import + 4 package tests pass locally.
+- [ ] **User: upload the 3 checkpoints to HF Hub** (`texture-frames-{trigger,
+      frame,args}`) via the README snippet, then first real `parse()` end-to-end.
+- [ ] Optional: fp16 weights to halve download; make repos public for auth-free use.
+
 ## Final scorecard (2026-07-07) — goal: ≥ baseline accuracy, faster
 
 | Task    | Encoder            | Baseline | Verdict                         |
