@@ -28,9 +28,20 @@ def test_parser_has_pipeline_api():
 
 
 def test_submodules_import():
-    for m in ["pipeline", "weights", "model_args2", "model_frame2", "lexicon",
+    for m in ["pipeline", "weights", "cli", "model_args2", "model_frame2", "lexicon",
               "data", "args_data", "args2_data", "frame2_data"]:
         importlib.import_module(f"texture_frames.{m}")
+
+
+def test_cli_help_exits_zero():
+    from texture_frames import cli
+
+    try:
+        cli.main(["--help"])
+    except SystemExit as e:
+        assert e.code == 0
+    else:
+        raise AssertionError("--help should exit")
 
 
 if __name__ == "__main__":

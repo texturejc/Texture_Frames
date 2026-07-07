@@ -9,7 +9,7 @@ description = "Fast DeBERTa-based FrameNet semantic frame parser (encoder rearch
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-authors = [{ name = "texturejc", email = "carneyjp@gmail.com" }]
+authors = [{ name = "James Carney", email = "carneyjp@gmail.com" }]
 keywords = ["framenet", "semantic-parsing", "srl", "nlp", "deberta"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -26,6 +26,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+
+[project.scripts]
+texture-frames = "texture_frames.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/texturejc/Texture_Frames"

@@ -230,6 +230,22 @@ out = [dataclasses.asdict(ann) for ann in parser.parse("She sold her bike .")]
 print(json.dumps(out, indent=2))
 ```
 
+### Command line
+
+Installing the package also provides a `texture-frames` command:
+
+```bash
+texture-frames "The chef gave food to the customer ."
+# [Giving] 'gave'
+#     Donor          'The chef'
+#     Theme          'food'
+#     Recipient      'to the customer'
+
+texture-frames --json "She sold her bike ."      # machine-readable output
+echo "They celebrated the victory ." | texture-frames    # read from stdin
+texture-frames --device cpu "Kim resigned ."
+```
+
 ---
 
 ## How it works: models, choices, and training
@@ -355,7 +371,7 @@ If you use this library, please cite this repository and the upstream work:
 
 ```bibtex
 @software{texture_frames,
-  author = {texturejc},
+  author = {Carney, James},
   title  = {texture-frames: a fast DeBERTa encoder FrameNet parser},
   url    = {https://github.com/texturejc/Texture_Frames},
   year   = {2026}
