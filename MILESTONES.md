@@ -239,7 +239,13 @@ Wrap the three trained heads into `texture-frames`, installable via
 - [x] editable install + import + 4 package tests pass locally.
 - [ ] **User: upload the 3 checkpoints to HF Hub** (`texture-frames-{trigger,
       frame,args}`) via the README snippet, then first real `parse()` end-to-end.
-- [ ] Optional: fp16 weights to halve download; make repos public for auth-free use.
+- [x] Weights uploaded to HF Hub; code repo + 3 HF repos made **public** —
+      tokenless `pip install` + `FrameParser()` verified end-to-end.
+- [x] Comprehensive `README.md`: FrameNet background, install (local + Colab,
+      dependency notes), full usage, benchmark table, per-head technical
+      justification + training protocol, acknowledgements (David Chanin, FrameNet,
+      Open-Sesame, DeBERTa), citation + license.
+- [ ] Optional: fp16 weights to halve download; PyPI release; CLI entry point.
 
 ## Final scorecard (2026-07-07) — goal: ≥ baseline accuracy, faster
 
