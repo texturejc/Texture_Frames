@@ -228,7 +228,14 @@ FE-menu conditioning. Single forward pass -> speed win preserved.
       — decode→role→frame-mask→weighted F1 (same metric as v1); `train_args2.ipynb`
 - [x] end-to-end plumbing verified locally: collator, train step, eval-loss via
       prediction_step, eval decode path (3 tests). 17 v2 tests total pass.
-- [ ] **Colab retrain + eval: report v2 F1 vs 0.628 (v1) / 0.753 (baseline)**
+- [x] **Colab retrain (A100): v2 F1 = 0.712** (P 0.687 / R 0.737), **50 ms/example.**
+      +0.084 over v1's 0.628 and *faster* — the architecture change worked. Now
+      only −0.041 from baseline 0.753. Precision < recall (fp 3532 > fn 2766):
+      the model over-predicts, so a NULL-threshold tightening should raise F1.
+- [ ] **NULL-bias sweep (no retrain):** added to `eval_args2` — pick on dev,
+      report on test. Free lever for the P<R imbalance.
+- [ ] If sweep still short of 0.753: tuning retrain (n_negatives up for
+      precision, role_lambda, epochs) + lightweight augmentation.
 
 ### Still queued
 - Trigger metric comparability: run the baseline model through our word-level
