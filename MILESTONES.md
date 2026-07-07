@@ -215,8 +215,24 @@ baseline's *test* 0.887; baseline dev is ~0.91, so test-vs-test we're behind.
       relation extraction). Custom head, moderate build. OR accept 0.863 as
       "competitive" and spend the effort on args v2. **User decision pending.**
 
+### Args v2 — detect-then-classify  (BUILT + locally verified, awaiting Colab retrain)
+Replaces v1's flat 2,400-way BIO with two heads on one DeBERTa backbone
+(`ARGS_V2_DESIGN.md`): 3-class span detection + per-span frame-masked role
+classification (+ NULL to reject spurious spans). Keeps predicate marking +
+FE-menu conditioning. Single forward pass -> speed win preserved.
+- [x] `args2_data.py` — detection labels, gold span→token records, negative
+      sampling, span decoder, role maps (11 pure tests)
+- [x] `model_args2.py` — two-head model, span pooling (start⊕end⊕mean), loss
+      = detect_CE + λ·role_CE (3 smoke tests on tiny backbone)
+- [x] `train_args2.py` — ragged-span collator + `Args2Trainer`; `eval_args2.py`
+      — decode→role→frame-mask→weighted F1 (same metric as v1); `train_args2.ipynb`
+- [x] end-to-end plumbing verified locally: collator, train step, eval-loss via
+      prediction_step, eval decode path (3 tests). 17 v2 tests total pass.
+- [ ] **Colab retrain + eval: report v2 F1 vs 0.628 (v1) / 0.753 (baseline)**
+
 ### Still queued
 - Trigger metric comparability: run the baseline model through our word-level
   metric for an airtight head-to-head.
+- Frame: marker-token pooling (deferred; args v2 first per user).
 - Batched eval for apples-to-apples ms/example vs the baseline's 196.6.
 - Optional shared-backbone consolidation — see DESIGN.md.
