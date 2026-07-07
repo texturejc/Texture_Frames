@@ -195,9 +195,18 @@ Feed the frame's FE names into the input so the model knows the role inventory
 - [ ] Cheap pre-retrain check: FE-mask coverage (forced-miss recall ceiling ->
       args soft-mask, parallel to the frame fix) — run before committing more.
 
+### Frame soft-mask sweep  — DONE (2026-07-07), gap NOT closed
+Sweep result: dev best `soft B=10` = 0.891; that bias on **test = 0.863**
+(hard 0.861). Only +0.002 on test — the 2.2% coverage-ceiling misses aren't
+recovered because the model isn't confident on non-candidate golds (a
+*discrimination* gap, not a mask gap). Adopt B=10 (free, dev-justified) but
+**frame is still −0.024 vs 0.887**. Caveat: dev 0.891 "beats" only the
+baseline's *test* 0.887; baseline dev is ~0.91, so test-vs-test we're behind.
+- [ ] **Frame retrain w/ candidate-frame-name conditioning** (feed candidate
+      frames into the input, mirroring the args FE-menu win) to close the
+      discrimination gap. Small, high-confidence.
+
 ### Still queued
-- Frame soft-mask sweep: run `eval_frame` bias sweep, pick the operating point
-  that recovers the 2.2% hard-mask ceiling (target > 0.861).
 - Trigger metric comparability: run the baseline model through our word-level
   metric for an airtight head-to-head.
 - Batched eval for apples-to-apples ms/example vs the baseline's 196.6.
