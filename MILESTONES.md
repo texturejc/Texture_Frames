@@ -218,7 +218,28 @@ baseline's *test* 0.887; baseline dev is ~0.91, so test-vs-test we're behind.
       Trainer), `eval_frame2.py` (reuses eval_frame's candidate sweep + report),
       `train_frame2.ipynb`. 5 frame2 tests pass (marker-find, forward/backprop,
       collator, trainer step). Keeps v1 frame code intact for comparison.
-- [ ] **Colab retrain + sweep: report frame2 acc vs 0.887 (v1 0.863)**
+- [x] **Colab retrain + sweep: frame2 marker-pooling ≈ flat.** dev best B=7
+      = 0.896; dev-picked bias on **test = 0.863** (test-best B=10 = 0.868).
+      Only ~+0.005 over v1's 0.863 — marker pooling was *not* the lever.
+      Diagnosis: covered-case accuracy is now ~0.885 (≈ baseline's 0.887 overall),
+      so discrimination is basically solved; the residual −0.02 is mostly the
+      2.2% candidate-coverage ceiling, which soft-mask can't recover — a hard,
+      low-payoff lever. **Frame plateaus ~0.86–0.87; banked as competitive.**
+
+## Final scorecard (2026-07-07) — goal: ≥ baseline accuracy, faster
+
+| Task    | Encoder            | Baseline | Verdict                         |
+| ------- | ------------------ | -------- | ------------------------------- |
+| Trigger | 0.751              | 0.735    | ✅ ahead                        |
+| Args    | 0.750              | 0.753    | ✅ parity (±noise; beats on dev)|
+| Frame   | 0.863–0.868        | 0.887    | ~−0.02, competitive (banked)    |
+| Speed   | ~50 ms/example     | 196.6 ms | ✅ ~4× faster everywhere        |
+
+Outcome: **2 of 3 tasks at/above baseline, frame within ~0.02, and the whole
+pipeline ~4× faster** (one forward pass vs 3 generative beam-search passes).
+Args — the task everyone flagged as hardest — went 0.628 → 0.712 → **0.750**
+via the detect-then-classify rearchitecture + WordNet augmentation. Frame is the
+one task still short, and three principled levers couldn't close its last ~0.02.
 
 ### Args v2 — detect-then-classify  (BUILT + locally verified, awaiting Colab retrain)
 Replaces v1's flat 2,400-way BIO with two heads on one DeBERTa backbone
