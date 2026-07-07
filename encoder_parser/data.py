@@ -164,20 +164,6 @@ def mark_trigger(text: str, trigger_loc: int) -> str:
     return f"{text[:start]}{TRIGGER_START} {text[start:end]} {TRIGGER_END}{text[end:]}"
 
 
-def frame_candidate_hint(candidates: list[str], max_cands: int = 20) -> str:
-    """The trigger's candidate frames as a string, fed into the input so the model
-    discriminates among named options instead of silently over 1,221 frames."""
-    return "; ".join(candidates[:max_cands])
-
-
-def build_frame_input(text: str, trigger_loc: int, cand_hint: str = "") -> str:
-    """Frame-classification input. With a candidate hint (M3):
-        "[{cand1}; {cand2}; …] : {…}<t> {trigger} </t>{…}"
-    Falls back to the plain marked sentence when cand_hint is empty."""
-    marked = mark_trigger(text, trigger_loc)
-    return f"[{cand_hint}] : {marked}" if cand_hint else marked
-
-
 def prf1(true_pos: int, false_pos: int, false_neg: int) -> dict[str, float]:
     precision = true_pos / (true_pos + false_pos) if (true_pos + false_pos) else 0.0
     recall = true_pos / (true_pos + false_neg) if (true_pos + false_neg) else 0.0
@@ -361,10 +347,10 @@ def load_frame_examples(split: str) -> list[tuple[str, int, str]]:
     return out
 
 
-def build_frame_dataset(split: str, tokenizer, frame2id: dict, lexicon, max_length: int = 320):
-    """Tokenize candidate-conditioned marked-trigger sentences into a torch Dataset
-    for sequence classification. Label = frame id. Requires the tokenizer to already
-    have the entity-marker tokens added (train_frame.py does this)."""
+def build_frame_dataset(split: str, tokenizer, frame2id: dict, max_length: int = 320):
+    """Tokenize marked-trigger sentences into a torch Dataset for sequence
+    classification. Label = frame id. Requires the tokenizer to already have the
+    entity-marker tokens added (train_frame.py does this)."""
     import torch
 
     class _ListDataset(torch.utils.data.Dataset):
@@ -381,11 +367,8 @@ def build_frame_dataset(split: str, tokenizer, frame2id: dict, lexicon, max_leng
     for text, trigger_loc, frame in load_frame_examples(split):
         if frame not in frame2id:
             continue  # frame absent from the FrameNet vocab (shouldn't happen)
-        hint = frame_candidate_hint(lexicon.candidate_frames(text, trigger_loc))
         enc = tokenizer(
-            build_frame_input(text, trigger_loc, hint),
-            truncation=True,
-            max_length=max_length,
+            mark_trigger(text, trigger_loc), truncation=True, max_length=max_length
         )
         rows.append(
             {

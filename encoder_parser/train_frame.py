@@ -70,8 +70,8 @@ def train(
     )
     model.resize_token_embeddings(len(tokenizer))  # for the 2 marker tokens
 
-    train_ds = build_frame_dataset("train", tokenizer, frame2id, lexicon, max_length=max_length)
-    dev_ds = build_frame_dataset("dev", tokenizer, frame2id, lexicon, max_length=max_length)
+    train_ds = build_frame_dataset("train", tokenizer, frame2id, max_length=max_length)
+    dev_ds = build_frame_dataset("dev", tokenizer, frame2id, max_length=max_length)
     print(f"train examples: {len(train_ds)}   dev examples: {len(dev_ds)}")
 
     collator = DataCollatorWithPadding(tokenizer)
