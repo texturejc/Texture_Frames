@@ -214,6 +214,7 @@ parser = FrameParser(
     device="cuda",      # "cpu" or "cuda"; defaults to cuda if available
     frame_bias=7.0,     # candidate soft-mask strength for frame classification
     null_bias=2.0,      # NULL-reject threshold for argument spans (↑ = higher precision)
+    trigger_bias=0.0,   # trigger-recall lever; >0 catches borderline triggers (↓ precision)
     max_length=320,     # tokenizer truncation length
 )
 ```
@@ -221,6 +222,17 @@ parser = FrameParser(
 `frame_bias` and `null_bias` default to the values selected on the dev split
 (see below); raise `null_bias` if you want argument extraction to be more
 conservative (fewer, more precise spans), lower it for higher recall.
+
+`trigger_bias` defaults to `0.0` — the operating point at which the trigger
+model was benchmarked (0.750 F1). The identifier has ~0.76 recall, so it
+occasionally misses a true trigger by a hair (e.g. *awarded* in "The committee
+awarded her the prize"). Setting `trigger_bias` to a small positive value adds
+that much to every token's TRIGGER logit, recovering these borderline misses at
+the cost of some precision:
+
+```python
+parser = FrameParser(trigger_bias=0.4)   # catches more triggers; a few more false ones
+```
 
 ### Convert to a plain dict (e.g. for JSON)
 

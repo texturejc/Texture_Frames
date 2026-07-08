@@ -85,6 +85,7 @@ class FrameParser:
         args_repo: str = DEFAULT_ARGS_REPO,
         frame_bias: float = 7.0,
         null_bias: float = 2.0,
+        trigger_bias: float = 0.0,
         max_length: int = 320,
     ):
         _ensure_nltk()
@@ -92,6 +93,7 @@ class FrameParser:
         self.max_length = max_length
         self.frame_bias = frame_bias
         self.null_bias = null_bias
+        self.trigger_bias = trigger_bias
 
         self.lexicon = Lexicon()
         self.trigger_model, self.trigger_tok = weights.load_trigger(trigger_repo, self.device)
@@ -130,6 +132,9 @@ class FrameParser:
             input_ids=enc["input_ids"].to(self.device),
             attention_mask=enc["attention_mask"].to(self.device),
         ).logits[0]
+        if self.trigger_bias:
+            logits = logits.clone()
+            logits[:, LABEL2ID["TRIGGER"]] += self.trigger_bias
         is_trig = [p == LABEL2ID["TRIGGER"] for p in logits.argmax(-1).tolist()]
         offsets = enc["offset_mapping"][0].tolist()
         return sorted(predicted_trigger_locs_from_tokens(offsets, word_ids, is_trig))

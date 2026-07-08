@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "texture-frames"
-version = "0.1.0"
+version = "0.1.1"
 description = "Fast DeBERTa-based FrameNet semantic frame parser (encoder rearchitecture of frame-semantic-transformer)."
 readme = "README.md"
 requires-python = ">=3.9"
