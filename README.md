@@ -279,6 +279,40 @@ design decision is **encoder + task heads** rather than the baseline's T5
 sequence-to-sequence *generation*: a single forward pass per stage, with no
 autoregressive decoding and no beam search, which is where the speed comes from.
 
+### A worked example through the chain
+
+Take one real annotation from the FrameNet 1.7 training data (one of ~20,600
+predicate instances):
+
+> The Region Commander has **declared** that we can shoot down aircraft that do
+> not respond to our direction.
+
+| Field | Gold value |
+| ----- | ---------- |
+| Trigger | `declared` |
+| Frame | `Statement` |
+| Frame element — Speaker | `The Region Commander` |
+| Frame element — Message | `we can shoot down aircraft that do not respond to our direction` |
+
+That single hand-annotated row is the **ground truth**, and it trains all three
+stages — each learning a different mapping from it:
+
+1. **Trigger** — input: the raw tokens; label: `TRIGGER` on `declared`, `O` on
+   every other word. The model learns *which words evoke a frame*.
+2. **Frame** — input: the sentence with the trigger marked (`… has <t> declared
+   </t> that …`); label: `Statement`, one of ~1,200 frames. The model learns
+   *which frame* the marked trigger evokes.
+3. **Arguments** — input: the sentence + `Statement` + the marked trigger; labels:
+   the spans `The Region Commander` and `we can shoot down … direction`, tagged
+   **Speaker** and **Message**. The model learns *which spans fill which roles*.
+
+The roles `Speaker`/`Message` belong specifically to the `Statement` frame — a
+`Giving` frame would instead define `Donor`/`Recipient`/`Theme`. That
+frame-specific role vocabulary is exactly why the argument head classifies each
+span against **only the current frame's roles** rather than all ~1,200 at once
+(see stage 3 below). At inference the chain runs the same three steps on raw
+text, feeding each stage's output into the next.
+
 ### 1. Trigger identification — token classification
 
 A per-token classifier (`O` / `TRIGGER`, first-subword labelling) over the
