@@ -226,13 +226,25 @@ conservative (fewer, more precise spans), lower it for higher recall.
 `trigger_bias` defaults to `0.0` — the operating point at which the trigger
 model was benchmarked (0.750 F1). The identifier has ~0.76 recall, so it
 occasionally misses a true trigger by a hair (e.g. *awarded* in "The committee
-awarded her the prize"). Setting `trigger_bias` to a small positive value adds
-that much to every token's TRIGGER logit, recovering these borderline misses at
-the cost of some precision:
+awarded her the prize"). It is a **precision↔recall dial** that holds F1 roughly
+constant (a dev sweep is flat at ~0.79 from bias 0.0 to 1.0) while trading surer
+triggers for more of them:
+
+| `trigger_bias` | precision | recall | behaviour |
+| -------------- | --------- | ------ | --------- |
+| 0.0 (default)  | higher    | lower  | fewer, surer triggers (benchmarked point) |
+| 0.5            | mid       | mid    | balanced |
+| 0.75–1.0       | lower     | higher | catches borderline misses; more spurious frames |
+
+Set it once on the parser, or **per call** without reloading the models:
 
 ```python
-parser = FrameParser(trigger_bias=0.4)   # catches more triggers; a few more false ones
+parser = FrameParser(trigger_bias=0.5)          # instance default for every call
+parser.parse("The committee awarded her the prize .", trigger_bias=0.75)  # this call only
 ```
+
+The default stays `0.0` so the headline number is the clean argmax result; raise
+it if, for your use, missing a whole frame is worse than adding a spurious one.
 
 ### Convert to a plain dict (e.g. for JSON)
 

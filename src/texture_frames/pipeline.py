@@ -109,9 +109,12 @@ class FrameParser:
 
     # -- public ------------------------------------------------------------ #
     @torch.no_grad()
-    def parse(self, text: str) -> list[FrameAnnotation]:
+    def parse(self, text: str, trigger_bias: float | None = None) -> list[FrameAnnotation]:
+        """Parse a sentence into frame annotations. Pass `trigger_bias` to
+        override the instance default for this call only (higher = more triggers
+        detected, at some precision cost); None uses the instance default."""
         annotations = []
-        for loc in self._triggers(text):
+        for loc in self._triggers(text, trigger_bias):
             frame = self._frame(text, loc)
             args = self._args(text, loc, frame)
             annotations.append(
@@ -122,7 +125,8 @@ class FrameParser:
         return annotations
 
     # -- stages ------------------------------------------------------------ #
-    def _triggers(self, text: str) -> list[int]:
+    def _triggers(self, text: str, trigger_bias: float | None = None) -> list[int]:
+        bias = self.trigger_bias if trigger_bias is None else trigger_bias
         enc = self.trigger_tok(
             text, truncation=True, max_length=self.max_length,
             return_offsets_mapping=True, return_tensors="pt",
@@ -132,9 +136,9 @@ class FrameParser:
             input_ids=enc["input_ids"].to(self.device),
             attention_mask=enc["attention_mask"].to(self.device),
         ).logits[0]
-        if self.trigger_bias:
+        if bias:
             logits = logits.clone()
-            logits[:, LABEL2ID["TRIGGER"]] += self.trigger_bias
+            logits[:, LABEL2ID["TRIGGER"]] += bias
         is_trig = [p == LABEL2ID["TRIGGER"] for p in logits.argmax(-1).tolist()]
         offsets = enc["offset_mapping"][0].tolist()
         return sorted(predicted_trigger_locs_from_tokens(offsets, word_ids, is_trig))

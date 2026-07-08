@@ -18,6 +18,8 @@ def main(argv=None) -> int:
     )
     ap.add_argument("text", nargs="*", help="sentence to parse (or pipe via stdin)")
     ap.add_argument("--device", default=None, help="cpu or cuda (default: auto)")
+    ap.add_argument("--trigger-bias", type=float, default=0.0,
+                    help="raise to detect more triggers, at some precision cost (default: 0.0)")
     ap.add_argument("--json", action="store_true", help="emit JSON instead of pretty text")
     ns = ap.parse_args(argv)
 
@@ -27,7 +29,7 @@ def main(argv=None) -> int:
 
     from .pipeline import FrameParser  # deferred: avoids torch import for --help
 
-    annotations = FrameParser(device=ns.device).parse(text)
+    annotations = FrameParser(device=ns.device).parse(text, trigger_bias=ns.trigger_bias)
 
     if ns.json:
         print(json.dumps([dataclasses.asdict(a) for a in annotations], indent=2))
